@@ -1,3 +1,4 @@
+# app.py
 import dash
 from dash import Dash, html
 import dash_bootstrap_components as dbc
@@ -6,6 +7,7 @@ app = Dash(
     __name__,
     use_pages=True,
     external_stylesheets=[dbc.themes.MORPH],
+    suppress_callback_exceptions=True,
 )
 
 navbar = dbc.NavbarSimple(
@@ -13,12 +15,9 @@ navbar = dbc.NavbarSimple(
         dbc.NavItem(dbc.NavLink("Ana Sayfa", href="/")),
         dbc.DropdownMenu(
             children=[
-                dbc.DropdownMenuItem(
-                    page["name"],
-                    href=page["relative_path"],
-                )
+                dbc.DropdownMenuItem(page["name"], href=page["relative_path"])
                 for page in dash.page_registry.values()
-                if page.get("path") != "/"
+                if page["path"] != "/"
             ],
             nav=True,
             in_navbar=True,
