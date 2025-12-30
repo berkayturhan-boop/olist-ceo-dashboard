@@ -14,6 +14,22 @@ dash.register_page(__name__, path="/", name="CEO Özeti")
 CARD_STYLE = {"borderRadius": "16px", "border": "none"}
 SECTION_CARD_CLASS = "shadow-sm mt-3"
 
+# Net Kâr KPI kartını öne çıkarmak için (hafif primary vurgu + koyu border)
+HIGHLIGHT_CARD_STYLE = {
+    **CARD_STYLE,
+    "border": "2px solid rgba(13, 110, 253, 0.55)",  # bootstrap primary
+    "boxShadow": "0 0.5rem 1.25rem rgba(13, 110, 253, 0.12)",
+}
+HIGHLIGHT_BADGE_STYLE = {
+    "background": "rgba(13, 110, 253, 0.10)",
+    "color": "#0d6efd",
+    "border": "1px solid rgba(13, 110, 253, 0.25)",
+    "borderRadius": "999px",
+    "padding": "2px 10px",
+    "fontSize": "12px",
+    "fontWeight": 700,
+}
+
 # Seller Impact ile aynı IT maliyeti modeli (senkron)
 ALPHA, BETA = 3157.27, 978.23
 
@@ -30,23 +46,28 @@ def brl(value: float) -> str:
     return f"{value:,.0f} BRL"
 
 
-def kpi_card(title, value, subtitle="", icon=""):
+def kpi_card(title, value, subtitle="", icon="", highlight: bool = False, badge_text: str | None = None):
+    style = HIGHLIGHT_CARD_STYLE if highlight else CARD_STYLE
+
+    header_row = html.Div(
+        [
+            html.Span(icon, style={"fontSize": "18px", "marginRight": "8px"}) if icon else None,
+            html.Span(title, className="text-muted fw-semibold"),
+            html.Span(badge_text, style=HIGHLIGHT_BADGE_STYLE, className="ms-auto") if badge_text else None,
+        ],
+        style={"display": "flex", "alignItems": "center"},
+    )
+
     return dbc.Card(
         dbc.CardBody(
             [
-                html.Div(
-                    [
-                        html.Span(icon, style={"fontSize": "18px", "marginRight": "8px"}) if icon else None,
-                        html.Span(title, className="text-muted fw-semibold"),
-                    ],
-                    style={"display": "flex", "alignItems": "center"},
-                ),
+                header_row,
                 html.H3(brl(value), className="mt-2 mb-1 fw-bold"),
                 html.Div(subtitle, className="text-muted"),
             ]
         ),
         className="shadow-sm h-100",
-        style=CARD_STYLE,
+        style=style,
     )
 
 
@@ -77,15 +98,19 @@ def build_waterfall(k):
         )
     )
 
+    # Sunumda yakınlaştırma gerekmemesi için fontları büyüt (+5–10%)
     fig.update_layout(
         title="Gelir → Maliyet → Net Kâr Akışı",
-        height=460,
-        margin=dict(l=30, r=20, t=60, b=30),
+        height=470,
+        margin=dict(l=30, r=20, t=70, b=35),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         legend_title_text="",
+        font=dict(size=15),  # genel font büyüdü
+        title_font=dict(size=20),  # başlık biraz daha büyük
     )
-    fig.update_yaxes(title="BRL", zeroline=True, zerolinewidth=1)
+    fig.update_xaxes(tickfont=dict(size=13))
+    fig.update_yaxes(title="BRL", zeroline=True, zerolinewidth=1, tickfont=dict(size=13))
     return fig
 
 
@@ -146,7 +171,18 @@ layout = dbc.Container(
                     ),
                     md=3,
                 ),
-                dbc.Col(kpi_card("Net Kâr", k["net_kar"], "Brüt kâr − IT/operasyon", "📈"), md=3),
+                # Net Kâr vurgulu
+                dbc.Col(
+                    kpi_card(
+                        "Net Kâr",
+                        k["net_kar"],
+                        "Brüt kâr − IT/operasyon",
+                        "📈",
+                        highlight=True,
+                        badge_text="PRIMARY KPI",
+                    ),
+                    md=3,
+                ),
             ],
             className="g-3",
         ),
