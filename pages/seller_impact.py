@@ -16,8 +16,10 @@ dash.register_page(__name__, path="/satici-etkisi", name="Satıcı Çıkarma Etk
 CARD_STYLE = {"borderRadius": "14px"}
 SECTION_CARD_CLASS = "shadow-sm mt-3"
 
+
 def brl(x: float) -> str:
     return f"{x:,.0f} BRL"
+
 
 def kpi_card(title: str, value: str, subtitle: str = "", icon: str = ""):
     return dbc.Card(
@@ -30,7 +32,7 @@ def kpi_card(title: str, value: str, subtitle: str = "", icon: str = ""):
                     ],
                     style={"display": "flex", "alignItems": "center"},
                 ),
-                html.H3(value, className="mt-2 mb-1 fw-bold"),  # ✅ bold fix
+                html.H3(value, className="mt-2 mb-1 fw-bold"),
                 html.Div(subtitle, className="text-muted"),
             ]
         ),
@@ -38,22 +40,23 @@ def kpi_card(title: str, value: str, subtitle: str = "", icon: str = ""):
         style=CARD_STYLE,
     )
 
+
 # -----------------------------
 # Data load
 # -----------------------------
 def load_sellers_df() -> pd.DataFrame:
-    seller = Seller()
-    return seller.get_training_data()
+    return Seller().get_training_data()
+
 
 SELLERS_DF = load_sellers_df().copy()
 
 # gross_profit (IT hariç) = revenues - cost_of_reviews
 SELLERS_DF["gross_profit"] = SELLERS_DF["revenues"] - SELLERS_DF["cost_of_reviews"]
 
-# "En kötüden başla" = gross_profit en düşük olanlar önce çıkarılacak
+# En kötüden başla: gross_profit en düşükler önce çıkar
 SELLERS_ASC = SELLERS_DF.sort_values("gross_profit", ascending=True).reset_index(drop=True)
 
-# "Kümülatif eğri" için: en iyi satıcıları tutarak kârın nasıl değiştiği
+# En iyiden başla: kümülatif eğri için
 SELLERS_DESC = SELLERS_DF.sort_values("gross_profit", ascending=False).reset_index(drop=True)
 
 TOTAL_SELLERS = int(SELLERS_DF["seller_id"].nunique())
@@ -65,8 +68,10 @@ IT_BASE = 200_000
 IT_PER_SELLER = 50
 IT_PER_ITEM = 1.35
 
+
 def compute_it_cost(n_sellers: int, n_items: int) -> float:
     return IT_BASE + IT_PER_SELLER * n_sellers + IT_PER_ITEM * n_items
+
 
 def scenario_totals(df: pd.DataFrame) -> dict:
     n_sellers = int(df["seller_id"].nunique())
@@ -89,13 +94,13 @@ def scenario_totals(df: pd.DataFrame) -> dict:
         "net_profit": net_profit,
     }
 
+
 BASE = scenario_totals(SELLERS_DF)
 
 # -----------------------------
 # Figures
 # -----------------------------
 def build_profit_curve_fig(kept_count: int):
-    # En iyi satıcıları sırayla ekleyerek kümülatif topla
     tmp = SELLERS_DESC.copy()
     tmp["cum_sellers"] = range(1, len(tmp) + 1)
     tmp["cum_items"] = tmp["quantity"].cumsum()
@@ -103,7 +108,6 @@ def build_profit_curve_fig(kept_count: int):
     tmp["cum_review_cost"] = tmp["cost_of_reviews"].cumsum()
     tmp["cum_gross_profit"] = tmp["cum_revenue"] - tmp["cum_review_cost"]
 
-    # kümülatif IT maliyeti
     tmp["cum_it_cost"] = tmp.apply(
         lambda r: compute_it_cost(int(r["cum_sellers"]), int(r["cum_items"])),
         axis=1,
@@ -111,7 +115,6 @@ def build_profit_curve_fig(kept_count: int):
     tmp["cum_net_profit"] = tmp["cum_gross_profit"] - tmp["cum_it_cost"]
 
     fig = go.Figure()
-
     fig.add_trace(
         go.Scatter(
             x=tmp["cum_sellers"],
@@ -129,12 +132,15 @@ def build_profit_curve_fig(kept_count: int):
         )
     )
 
+    # Dikey çizgi + annotation (taşmasın)
     fig.add_vline(
         x=kept_count,
         line_width=2,
         line_dash="dash",
         annotation_text="Seçili senaryo",
         annotation_position="top",
+        annotation_y=0.985,
+        annotation_yanchor="top",
     )
 
     fig.update_layout(
@@ -146,25 +152,26 @@ def build_profit_curve_fig(kept_count: int):
         legend=dict(
             orientation="h",
             yanchor="top",
-            y=0.98,         # ✅ içeride üstte
+            y=0.98,
             xanchor="left",
             x=0.02,
             bgcolor="rgba(255,255,255,0.55)",
         ),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
     )
+
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.08)")
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(0,0,0,0.08)", zeroline=True, zerolinewidth=1)
     return fig
 
+
 def build_pl_snapshot_fig(totals: dict):
-    # Sağdaki özet bar: Gelir / Review / IT / Net kâr
+    # Label'ları kısa tut (dar alanda da iyi görünür)
     dfp = pd.DataFrame(
         {
-            "Kalem": ["Toplam Gelir", "Review Maliyeti", "IT / Operasyon", "Net Kâr"],
-            "Tutar": [
-                totals["revenue"],
-                -totals["review_cost"],
-                -totals["it_cost"],
-                totals["net_profit"],
-            ],
+            "Kalem": ["Toplam Gelir", "Review", "IT / Operasyon", "Net Kâr"],
+            "Tutar": [totals["revenue"], -totals["review_cost"], -totals["it_cost"], totals["net_profit"]],
         }
     )
 
@@ -177,39 +184,40 @@ def build_pl_snapshot_fig(totals: dict):
         text="Tutar",
     )
 
-    # Sayıları daha okunur yap
+    # Sayılar dışarıda + overlap azalt
     fig.update_traces(
         texttemplate="%{text:,.0f}",
         textposition="outside",
         cliponaxis=False,
     )
 
+    # ✅ Kritik: marginleri daralt (özellikle sağ)
     fig.update_layout(
         height=420,
-        margin=dict(l=120, r=55, t=65, b=55),  # ✅ y-label alanı + sağ boşluk
+        margin=dict(l=125, r=55, t=65, b=55),
         xaxis_title="BRL",
         yaxis_title="",
         showlegend=False,
+        uniformtext_minsize=12,
+        uniformtext_mode="hide",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
     )
 
-    # ✅ Etiketleri sağa yaklaştır (y eksen yazıları)
-    fig.update_yaxes(
-        automargin=True,
-        ticklabelposition="outside",
-    )
-    fig.update_xaxes(zeroline=True, zerolinewidth=1)
-
+    fig.update_yaxes(automargin=True)
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.08)", zeroline=True, zerolinewidth=1)
     return fig
+
 
 # -----------------------------
 # Layout
 # -----------------------------
 layout = dbc.Container(
     [
-        html.H2("Satıcı Çıkarma Etkisi — Senaryo Analizi", className="mt-4"),
+        html.H2("Satıcı Çıkarma Etkisi — Senaryo Analizi", className="mt-4 mb-1 fw-bold"),
         html.P(
             "Amaç satıcı sayısını azaltmak değil; net kârı aşağı çeken satıcıları tespit edip aksiyon almaktır.",
-            className="text-muted",
+            className="text-muted mb-3",
         ),
 
         dbc.Card(
@@ -228,7 +236,11 @@ layout = dbc.Container(
                         value=0,
                         tooltip={"placement": "bottom", "always_visible": False},
                     ),
-                    html.Div(id="scenario_line", className="text-muted", style={"marginTop": "10px"}),
+                    html.Div(
+                        id="scenario_line",
+                        className="text-muted fw-semibold",
+                        style={"marginTop": "10px"},
+                    ),
                 ]
             ),
             className="shadow-sm",
@@ -246,7 +258,6 @@ layout = dbc.Container(
             className="g-3 mt-0",
         ),
 
-        # ✅ Grafik kartı: eski gibi açık arka plan + içte beyaz kartlar
         dbc.Card(
             dbc.CardBody(
                 [
@@ -257,27 +268,36 @@ layout = dbc.Container(
                         style={"marginBottom": "12px"},
                     ),
 
+                    # ✅ md=6 / md=6: sağ grafik daralmasın
                     dbc.Row(
                         [
                             dbc.Col(
                                 dbc.Card(
                                     dbc.CardBody(
-                                        dcc.Graph(id="profit_curve", config={"displayModeBar": False})
+                                        dcc.Graph(
+                                            id="profit_curve",
+                                            config={"displayModeBar": False},
+                                            style={"width": "100%"},
+                                        )
                                     ),
                                     className="shadow-sm",
                                     style={"borderRadius": "14px"},
                                 ),
-                                md=7,  # ✅ soldaki biraz daha geniş
+                                md=6,
                             ),
                             dbc.Col(
                                 dbc.Card(
                                     dbc.CardBody(
-                                        dcc.Graph(id="pl_snapshot", config={"displayModeBar": False})
+                                        dcc.Graph(
+                                            id="pl_snapshot",
+                                            config={"displayModeBar": False},
+                                            style={"width": "100%"},
+                                        )
                                     ),
                                     className="shadow-sm",
                                     style={"borderRadius": "14px"},
                                 ),
-                                md=5,  # ✅ sağdaki dar sıkışmasın
+                                md=6,
                             ),
                         ],
                         className="g-3",
@@ -285,13 +305,13 @@ layout = dbc.Container(
                 ]
             ),
             className=SECTION_CARD_CLASS,
-            style={**CARD_STYLE, "backgroundColor": "#EEF3FB"},  # ✅ light/blue-ish like old
+            style={**CARD_STYLE, "backgroundColor": "#EEF3FB"},
         ),
 
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H5("📌 Yönetim için net çıkarımlar", className="mb-2"),
+                    html.H5("📌 Yönetim için net çıkarımlar", className="mb-2 fw-bold"),
                     html.Ul(
                         [
                             html.Li("Bazı satıcılar toplam net kârı aşağı çekebilir; bu satıcılar aksiyon önceliğidir."),
@@ -319,6 +339,7 @@ layout = dbc.Container(
     fluid=True,
 )
 
+
 # -----------------------------
 # Callback
 # -----------------------------
@@ -332,7 +353,6 @@ layout = dbc.Container(
 def update_scenario(remove_n: int):
     remove_n = int(remove_n or 0)
 
-    # Senaryo: en kötüden remove_n satıcıyı çıkar
     kept_df = SELLERS_ASC.iloc[remove_n:].copy()
     totals = scenario_totals(kept_df)
 
