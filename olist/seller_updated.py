@@ -1,13 +1,71 @@
+from __future__ import annotations
+
+from pathlib import Path
 import pandas as pd
 import numpy as np
 
-from olist.data import Olist
-
 
 class Seller:
-    def __init__(self):
-        olist = Olist()
-        self.data = olist.get_data()
+    """
+    CEO_request projesi için seller bazlı eğitim datası üretir.
+
+    Bu revize versiyon, CSV'leri her bilgisayarda sorunsuz bulabilmek için
+    proje kökündeki `data/` klasöründen Path ile okur.
+    """
+
+    def __init__(self, data_dir: str | Path | None = None):
+        # Bu dosya: .../CEO_talebi_takim1/olist/seller_updated.py
+        base_dir = Path(__file__).resolve().parent          # .../olist
+        project_root = base_dir.parent                      # .../CEO_talebi_takim1
+
+        self.data_dir = Path(data_dir) if data_dir else (project_root / "data")
+        self.data = self._load_data()
+
+    # -----------------------------
+    # Load required CSVs (robust paths)
+    # -----------------------------
+    def _load_data(self) -> dict[str, pd.DataFrame]:
+        """
+        Projede kullandığımız minimum tablolar:
+        - sellers
+        - orders
+        - order_items
+        - order_reviews
+        """
+        required = {
+            "sellers": "olist_sellers_dataset.csv",
+            "orders": "olist_orders_dataset.csv",
+            "order_items": "olist_order_items_dataset.csv",
+            "order_reviews": "olist_order_reviews_dataset.csv",
+        }
+
+        missing = [fname for fname in required.values() if not (self.data_dir / fname).exists()]
+        if missing:
+            raise FileNotFoundError(
+                "Gerekli CSV dosyaları bulunamadı.\n"
+                f"Aranan klasör: {self.data_dir}\n"
+                f"Eksik dosyalar: {missing}\n\n"
+                "Çözüm: Bu CSV'leri repo kökündeki `data/` klasörüne koyup push'layın."
+            )
+
+        # Okuma (id kolonlarını string tutmak güvenli)
+        sellers = pd.read_csv(self.data_dir / required["sellers"], dtype={"seller_id": "string"})
+        orders = pd.read_csv(self.data_dir / required["orders"], dtype={"order_id": "string"})
+        order_items = pd.read_csv(
+            self.data_dir / required["order_items"],
+            dtype={"order_id": "string", "seller_id": "string"},
+        )
+        order_reviews = pd.read_csv(
+            self.data_dir / required["order_reviews"],
+            dtype={"order_id": "string"},
+        )
+
+        return {
+            "sellers": sellers,
+            "orders": orders,
+            "order_items": order_items,
+            "order_reviews": order_reviews,
+        }
 
     # -----------------------------
     # Basic seller features
@@ -22,8 +80,13 @@ class Seller:
     def get_seller_delay_wait_time(self) -> pd.DataFrame:
         order_items = self.data["order_items"][["order_id", "seller_id", "shipping_limit_date"]].copy()
         orders = self.data["orders"][
-            ["order_id", "order_status", "order_purchase_timestamp",
-             "order_delivered_carrier_date", "order_delivered_customer_date"]
+            [
+                "order_id",
+                "order_status",
+                "order_purchase_timestamp",
+                "order_delivered_carrier_date",
+                "order_delivered_customer_date",
+            ]
         ].copy()
 
         # Only delivered orders (otherwise dates can be NaT)
@@ -32,8 +95,12 @@ class Seller:
         ship = order_items.merge(orders, on="order_id", how="inner")
 
         # Datetimes
-        for col in ["shipping_limit_date", "order_purchase_timestamp",
-                    "order_delivered_carrier_date", "order_delivered_customer_date"]:
+        for col in [
+            "shipping_limit_date",
+            "order_purchase_timestamp",
+            "order_delivered_carrier_date",
+            "order_delivered_customer_date",
+        ]:
             ship[col] = pd.to_datetime(ship[col], errors="coerce")
 
         # Per row durations (days as float)
@@ -151,13 +218,24 @@ class Seller:
         # Profits (gross, before IT operational costs)
         df["profits"] = df["revenues"] - df["cost_of_reviews"]
 
-        # Keep everything CEO_request will need
         keep_cols = [
-            "seller_id", "seller_city", "seller_state",
-            "delay_to_carrier", "wait_time",
-            "date_first_sale", "date_last_sale", "months_on_olist",
-            "n_orders", "quantity", "quantity_per_order", "sales",
-            "share_of_one_stars", "share_of_five_stars", "review_score",
-            "cost_of_reviews", "revenues", "profits",
+            "seller_id",
+            "seller_city",
+            "seller_state",
+            "delay_to_carrier",
+            "wait_time",
+            "date_first_sale",
+            "date_last_sale",
+            "months_on_olist",
+            "n_orders",
+            "quantity",
+            "quantity_per_order",
+            "sales",
+            "share_of_one_stars",
+            "share_of_five_stars",
+            "review_score",
+            "cost_of_reviews",
+            "revenues",
+            "profits",
         ]
         return df[keep_cols]
