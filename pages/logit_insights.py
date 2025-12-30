@@ -8,273 +8,114 @@ import plotly.express as px
 dash.register_page(__name__, path="/memnuniyet", name="Memnuniyet Sürücüleri")
 
 # -----------------------------
-# Stil sabitleri
+# Modern Stil ve Renk Paleti
 # -----------------------------
-CARD_STYLE = {"borderRadius": "16px", "border": "none"}
-SECTION_CLASS = "shadow-sm mt-4"
-
+COLOR_RISK = "#E74C3C"          # 1★ Riski için uyarıcı kırmızı
+COLOR_SATISFACTION = "#2E86C1"  # 5★ Kaybı için kurumsal mavi
+CARD_STYLE = {"borderRadius": "20px", "border": "none", "backgroundColor": "#ffffff"}
 
 def load_effects() -> pd.DataFrame:
     """
-    Not: Bu sayfadaki rakamlar 'standardize edilmiş' (göreli) etki gücünü temsil eder.
-    Eğitimdeki logit sonuçlarından üretilmiş örnek bir özet tablo gibi düşün.
+    Notebook analizindeki katsayılar (coef) baz alınmıştır.
+    wait_time: 0.69 (1*) / -0.51 (5*)
+    delay_vs_expected: 0.26 (1*) / -0.44 (5*)
+    number_of_sellers: 0.23 (1*) / -0.17 (5*)
     """
     data = [
-        ("Teslimat süresi (wait_time)", 0.68, 0.50),
-        ("Beklenenden geç gelme (delay_vs_expected)", 0.27, 0.42),
-        ("Siparişte satıcı sayısı (number_of_sellers)", 0.22, 0.18),
-        ("Satıcı–müşteri uzaklığı (distance)", 0.10, 0.06),
-        ("Kargo ücreti (freight_value)", 0.08, 0.05),
-        ("Ürün fiyatı (price)", 0.03, 0.02),
+        ("Teslimat Süresi", 0.69, 0.51),
+        ("Gecikme (Beklenti vs Gerçek)", 0.26, 0.44),
+        ("Siparişteki Satıcı Sayısı", 0.23, 0.17),
+        ("Müşteri-Satıcı Uzaklığı", 0.10, 0.06), # Mutlak değerler kullanılmıştır
+        ("Kargo Ücreti", 0.11, 0.06),
+        ("Ürün Fiyatı", 0.04, 0.03),
     ]
-    return pd.DataFrame(
-        data,
-        columns=[
-            "Faktör",
-            "1★ Riski Artıran Etki",
-            "5★ Memnuniyeti Azaltan Etki",
-        ],
-    )
+    return pd.DataFrame(data, columns=["Faktör", "Risk", "Memnuniyet_Kaybi"])
 
-
-def _card(title: str, body: list, icon: str):
-    return dbc.Card(
-        dbc.CardBody(
-            [
-                html.Div(
-                    [html.Span(icon, className="me-2"), html.Span(title)],
-                    className="text-muted fw-semibold",
-                    style={"display": "flex", "alignItems": "center"},
-                ),
-                *body,
-            ]
-        ),
-        className="shadow-sm border-0 h-100",
-        style=CARD_STYLE,
-    )
-
-
-def build_bar(df: pd.DataFrame, col: str, title: str, color_hex: str):
-    d = df.sort_values(col, ascending=True).copy()
+def build_modern_bar(df: pd.DataFrame, col: str, title: str, color: str, max_val: float):
+    # En yüksek etkiyi en başa almak için azalan sıralama (Descending)
+    d = df.sort_values(col, ascending=True).copy() 
 
     fig = px.bar(
-        d,
-        x=col,
-        y="Faktör",
-        orientation="h",
-        title=title,
+        d, x=col, y="Faktör", orientation="h",
         text=col,
+        title=f"<b>{title}</b>"
     )
 
     fig.update_traces(
-        marker_color=color_hex,
-        texttemplate="%{text:.2f}",
+        marker_color=color,
+        texttemplate="<b>%{text:.2f}</b>", # Katsayıları vurgula
         textposition="outside",
         cliponaxis=False,
+        hovertemplate="<b>%{y}</b><br>Göreceli Etki Gücü: %{x}<extra></extra>"
     )
 
     fig.update_layout(
-        height=420,
-        margin=dict(l=20, r=30, t=55, b=20),
+        height=400,
+        margin=dict(l=10, r=50, t=60, b=20),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        showlegend=False,
-        xaxis_title="Göreceli Etki Gücü (standardize)",
-        yaxis_title="",
-        font=dict(family="Segoe UI, sans-serif"),
+        xaxis=dict(showgrid=False, zeroline=True, zerolinecolor="#d1d1d1", range=[0, max_val * 1.2], visible=False),
+        yaxis=dict(tickfont=dict(size=13, color="#2c3e50"), showline=False, title=""),
+        font=dict(family="Inter, Segoe UI, sans-serif"),
+        title_font=dict(size=18, color="#2c3e50")
     )
-
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.08)")
-    fig.update_yaxes(tickfont=dict(size=12))
     return fig
 
-
-# -----------------------------
-# Data + fig
-# -----------------------------
+# Veri Hazırlığı
 df = load_effects()
+# İki grafik arası kıyaslanabilirlik için ortak üst sınır
+max_range = max(df["Risk"].max(), df["Memnuniyet_Kaybi"].max())
 
-fig_1 = build_bar(
-    df=df,
-    col="1★ Riski Artıran Etki",
-    title="▼ 1★ riskini en çok tetikleyen faktörler",
-    color_hex="#EF553B",
-)
+fig_risk = build_modern_bar(df, "Risk", "▼ 1★ Riskini Tetikleyenler", COLOR_RISK, max_range)
+fig_sat = build_modern_bar(df, "Memnuniyet_Kaybi", "✦ 5★ Kaybına Neden Olanlar", COLOR_SATISFACTION, max_range)
 
-fig_5 = build_bar(
-    df=df,
-    col="5★ Memnuniyeti Azaltan Etki",
-    title="✦ 5★ memnuniyeti en çok düşüren faktörler",
-    color_hex="#00CC96",
-)
-
-top_1_risk = df.sort_values("1★ Riski Artıran Etki", ascending=False).iloc[0]["Faktör"]
-top_5_drop = df.sort_values("5★ Memnuniyeti Azaltan Etki", ascending=False).iloc[0]["Faktör"]
-
-
-# -----------------------------
 # Layout
-# -----------------------------
-layout = dbc.Container(
-    [
-        html.Div(
-            [
-                html.H2("Müşteri Memnuniyeti — Kritik Sürücüler", className="mt-4 fw-bold"),
-                html.P(
-                    "Amaç: Teknik detaya girmeden, memnuniyeti en çok etkileyen operasyonel noktaları önceliklendirmek.",
-                    className="text-muted",
-                ),
-            ]
-        ),
+layout = dbc.Container([
+    # Başlık
+    html.Div([
+        html.H2("Operasyonel Memnuniyet Analizi", className="mt-4 fw-bold", style={"color": "#2c3e50"}),
+        html.P("Lojistik regresyon katsayılarına göre operasyonel faktörlerin puanlar üzerindeki etkisi.", className="text-muted mb-4"),
+    ]),
 
-        # Üstte 2 özet kart
-        dbc.Row(
-            [
-                dbc.Col(
-                    _card(
-                        "KRİTİK RİSK NOKTASI (1★)",
-                        [
-                            html.H3(
-                                "Teslimat Süresi",
-                                className="mt-2 mb-1 fw-bold",
-                                style={"color": "#EF553B"},
-                            ),
-                            html.Div(
-                                "Teslimat uzadıkça düşük puan (1★) riski belirgin şekilde artıyor.",
-                                className="text-muted",
-                            ),
-                            html.Div(
-                                f"En güçlü sinyal: {top_1_risk}",
-                                className="small text-muted mt-2",
-                            ),
-                        ],
-                        "⚠️",
-                    ),
-                    md=6,
-                ),
-                dbc.Col(
-                    _card(
-                        "MEMNUNİYET KIRILIMI (5★)",
-                        [
-                            html.H3(
-                                "Gecikme / Beklentinin Aşılması",
-                                className="mt-2 mb-1 fw-bold",
-                                style={"color": "#636EFA"},
-                            ),
-                            html.Div(
-                                "Sipariş beklenenden geç geldikçe 5★ olasılığı düşüyor.",
-                                className="text-muted",
-                            ),
-                            html.Div(
-                                f"En güçlü sinyal: {top_5_drop}",
-                                className="small text-muted mt-2",
-                            ),
-                        ],
-                        "⭐",
-                    ),
-                    md=6,
-                ),
-            ],
-            className="g-4",
-        ),
+    # Üst KPI Kartları
+    dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody([
+            html.Small("🚨 EN BÜYÜK RİSK", className="text-danger fw-bold"),
+            html.H3("Teslimat Süresi", className="fw-bold mt-1"),
+            html.P("Hız, müşteri memnuniyetsizliğinin birincil matematiksel sürücüsü.", className="text-muted small mb-0")
+        ]), style=CARD_STYLE, className="shadow-sm"), md=6),
+        dbc.Col(dbc.Card(dbc.CardBody([
+            html.Small("✨ SADAKAT KRİTERİ", className="text-primary fw-bold"),
+            html.H3("Zamanında Teslim", className="fw-bold mt-1"),
+            html.P("Gecikme, müşteriyi 5★ kategorisinden hızla uzaklaştırıyor.", className="text-muted small mb-0")
+        ]), style=CARD_STYLE, className="shadow-sm"), md=6),
+    ], className="g-4 mb-4"),
 
-        # Grafikler kartı
-        dbc.Card(
-            dbc.CardBody(
-                [
-                    dbc.Row(
-                        [
-                            dbc.Col(dcc.Graph(figure=fig_1, config={"displayModeBar": False}), md=6),
-                            dbc.Col(dcc.Graph(figure=fig_5, config={"displayModeBar": False}), md=6),
-                        ],
-                        className="g-3",
-                    ),
-                ]
-            ),
-            className=SECTION_CLASS,
-            style=CARD_STYLE,
-        ),
+    # Grafikler
+    dbc.Card(dbc.CardBody([
+        dbc.Row([
+            dbc.Col(dcc.Graph(figure=fig_risk, config={"displayModeBar": False}), md=6),
+            dbc.Col(dcc.Graph(figure=fig_sat, config={"displayModeBar": False}), md=6),
+        ])
+    ]), style=CARD_STYLE, className="shadow-sm mb-4"),
 
-        # Net içgörüler + Aksiyonlar
-        dbc.Row(
-            [
-                dbc.Col(
-                    dbc.Card(
-                        dbc.CardBody(
-                            [
-                                html.H5("Net içgörüler", className="mb-3 fw-bold"),
-                                dbc.ListGroup(
-                                    [
-                                        dbc.ListGroupItem(
-                                            "Operasyon (teslimat süresi + gecikme) memnuniyetin ana kaldıraçı.",
-                                            className="border-0",
-                                        ),
-                                        dbc.ListGroupItem(
-                                            "Çok satıcılı siparişler (split shipment) müşteri deneyimini zorlaştırıyor.",
-                                            className="border-0",
-                                        ),
-                                        dbc.ListGroupItem(
-                                            "Fiyat/kargo etkili ama operasyonel etkiler kadar belirleyici değil.",
-                                            className="border-0",
-                                        ),
-                                    ],
-                                    flush=True,
-                                ),
-                            ]
-                        ),
-                        className="h-100 shadow-sm border-0",
-                        style=CARD_STYLE,
-                    ),
-                    md=7,
-                ),
-                dbc.Col(
-                    dbc.Alert(
-                        [
-                            html.H5("Önerilen aksiyonlar", className="mb-3 fw-bold"),
-                            html.Ul(
-                                [
-                                    html.Li("SLA hedefleri tanımla ve düzenli takip et."),
-                                    html.Li("Gecikme riski için erken uyarı sistemi kur."),
-                                    html.Li("Çok satıcılı siparişleri azalt/optimize et."),
-                                ],
-                                className="mb-0",
-                            ),
-                        ],
-                        color="primary",
-                        className="h-100 shadow-sm",
-                        style={"borderRadius": "16px"},
-                    ),
-                    md=5,
-                ),
-            ],
-            className="mt-4 g-4",
-        ),
-
-        # ✅ Finansal bağlantı (koyu kutu - diğer sayfalarla uyumlu)
-        dbc.Alert(
-            [
-                html.Div(
-                    [
-                        html.Span("🔗", className="me-2"),
-                        html.Span("Finansal Etki", className="fw-bold"),
-                    ],
-                    className="mb-1",
-                    style={"display": "flex", "alignItems": "center"},
-                ),
-                html.Div(
-                    "Bu operasyonel sorunlar sadece puanları değil, net kârı da eritiyor. "
-                    "Bir sonraki sayfada gelir → maliyet → net kâr kırılımıyla yönetim etkisini netleştiriyoruz.",
-                    className="mb-0",
-                ),
-            ],
-            color="dark",
-            className="mt-4 shadow-sm text-white",
-            style={
-                "borderRadius": "14px",
-                "borderLeft": "6px solid #636EFA",
-            },
-        ),
-    ],
-    fluid=True,
-    className="pb-5 px-4",
-)
+    # Çıkarımlar ve Aksiyonlar
+    dbc.Row([
+        dbc.Col(html.Div([
+            html.H5("📌 Analizden Çıkarımlar", className="fw-bold"),
+            html.Ul([
+                html.Li("Lojistik performans (hız ve gecikme), fiyat etkisinden 15 kat daha baskındır."),
+                html.Li("Gecikme (Delay), 5★ kaybetme olasılığını, 1★ alma olasılığından daha fazla etkiliyor."),
+                html.Li("Müşteri-Satıcı mesafesi kontrol edildiğinde, uzak mesafelerde tolerans bir miktar artıyor."),
+            ], className="mt-3")
+        ]), md=7),
+        dbc.Col(dbc.Alert([
+            html.H5("🚀 Stratejik Öneriler", className="fw-bold"),
+            html.Hr(),
+            html.Ul([
+                html.Li("Fiyat indiriminden ziyade teslimat hızını optimize etmeye odaklan."),
+                html.Li("5★ sadakati için gecikme riskini proaktif olarak yönet."),
+            ], className="ps-3")
+        ], color="info", style={"borderRadius": "15px"}), md=5),
+    ]),
+], fluid=True, className="px-4 pb-5", style={"backgroundColor": "#f8f9fa", "minHeight": "100vh"})
