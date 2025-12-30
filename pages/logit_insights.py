@@ -4,75 +4,174 @@ from dash import html, dcc
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
-import numpy as np
 
-dash.register_page(__name__, path="/logit-insights", name="Logit İçgörüleri")
+dash.register_page(__name__, path="/logit-insights", name="Memnuniyet Sürücüleri")
 
-# Notebook'tan alınan katsayılar (standardize edilmiş feature'lar için)
-COEFS_ONE = {
-    "wait_time": 0.6907,
-    "delay_vs_expected": 0.2626,
-    "number_of_sellers": 0.2295,
-    "distance_seller_customer": -0.2193,
-    "price": 0.0407,
-    "freight_value": 0.1090,
-}
-COEFS_FIVE = {
-    "wait_time": -0.5140,
-    "delay_vs_expected": -0.4366,
-    "number_of_sellers": -0.1716,
-    "distance_seller_customer": 0.1075,
-    "price": 0.0268,
-    "freight_value": -0.0624,
+# Notebook'tan alınan (standardize edilmiş) katsayılar
+# Not: Bu sayfada "katsayı / logit / standardize" kelimelerini arayüzde göstermiyoruz.
+COEFS_ONE_STAR = {
+    "Teslimat süresi": 0.6907,                 # wait_time
+    "Beklenenden geç gelme": 0.2626,           # delay_vs_expected
+    "Siparişte satıcı sayısı": 0.2295,         # number_of_sellers
+    "Satıcı–müşteri uzaklığı": -0.2193,        # distance_seller_customer
+    "Kargo ücreti": 0.1090,                    # freight_value
+    "Ürün fiyatı": 0.0407,                     # price
 }
 
-df = pd.DataFrame({
-    "feature": list(COEFS_ONE.keys()),
-    "1★ katsayı": [COEFS_ONE[k] for k in COEFS_ONE],
-    "5★ katsayı": [COEFS_FIVE[k] for k in COEFS_ONE],
-})
-df_m = df.melt(id_vars="feature", var_name="model", value_name="coef")
-df_m["abs_coef"] = df_m["coef"].abs()
+COEFS_FIVE_STAR = {
+    "Teslimat süresi": -0.5140,                # wait_time
+    "Beklenenden geç gelme": -0.4366,          # delay_vs_expected
+    "Siparişte satıcı sayısı": -0.1716,        # number_of_sellers
+    "Satıcı–müşteri uzaklığı": 0.1075,         # distance_seller_customer
+    "Kargo ücreti": -0.0624,                   # freight_value
+    "Ürün fiyatı": 0.0268,                     # price
+}
 
-fig = px.bar(
-    df_m.sort_values("abs_coef", ascending=True),
-    x="coef",
-    y="feature",
-    color="model",
-    orientation="h",
-    title="Memnuniyet Sürücüleri (Logit Katsayıları, standardize)",
+# -------------------------
+# Build tidy dataframe
+# -------------------------
+features = list(COEFS_ONE_STAR.keys())
+
+df = pd.DataFrame(
+    {
+        "Faktör": features,
+        "Mutsuzluk Riski (1★)": [COEFS_ONE_STAR[f] for f in features],
+        "Memnuniyet (5★)": [COEFS_FIVE_STAR[f] for f in features],
+    }
 )
+
+df_long = df.melt(id_vars="Faktör", var_name="Gösterge", value_name="Etki")
+df_long["Mutlak Etki"] = df_long["Etki"].abs()
+
+# Sıralama: en güçlü etki üstte görünsün
+order = (
+    df_long.groupby("Faktör")["Mutlak Etki"]
+    .max()
+    .sort_values(ascending=False)
+    .index.tolist()
+)
+
+# -------------------------
+# Figure
+# -------------------------
+fig = px.bar(
+    df_long,
+    x="Etki",
+    y="Faktör",
+    color="Gösterge",
+    orientation="h",
+    category_orders={"Faktör": order},
+    title="Sipariş Deneyimini Etkileyen Unsurlar",
+)
+
+fig.update_layout(
+    height=380,
+    margin=dict(l=40, r=30, t=60, b=40),
+    legend_title_text="",
+)
+
+# -------------------------
+# Components
+# -------------------------
+def info_card(title: str, main: str, sub: str, icon: str = ""):
+    return dbc.Card(
+        dbc.CardBody(
+            [
+                html.Div(
+                    [
+                        html.Span(icon, style={"fontSize": "18px", "marginRight": "8px"}) if icon else None,
+                        html.Span(title, className="text-muted"),
+                    ],
+                    style={"display": "flex", "alignItems": "center"},
+                ),
+                html.H4(main, className="mt-2 mb-1"),
+                html.Div(sub, className="text-muted"),
+            ]
+        ),
+        className="shadow-sm h-100",
+        style={"borderRadius": "14px"},
+    )
 
 layout = dbc.Container(
     [
-        html.H2("Logit İçgörüleri (Sipariş Memnuniyeti)", className="mt-4"),
+        html.H2("Müşteri Memnuniyetini Etkileyen Faktörler", className="mt-4"),
         html.P(
-            "1★ ve 5★ ihtimalini etkileyen faktörleri, model katsayıları üzerinden özetler.",
+            "Sipariş deneyiminde hangi unsurlar müşteriyi mutsuz ediyor, hangileri memnuniyeti artırıyor?",
             className="text-muted",
         ),
+
         dbc.Row(
             [
-                dbc.Col(dbc.Card(dbc.CardBody([
-                    html.Div("En güçlü negatif etki (5★)", className="text-muted"),
-                    html.H4("wait_time / delay_vs_expected"),
-                    html.Div("Bekleme ve gecikme uzadıkça 5★ olasılığı düşer.", className="text-muted"),
-                ]), className="shadow-sm"), md=6),
-                dbc.Col(dbc.Card(dbc.CardBody([
-                    html.Div("En güçlü risk (1★)", className="text-muted"),
-                    html.H4("wait_time"),
-                    html.Div("Bekleme uzadıkça 1★ olasılığı artar.", className="text-muted"),
-                ]), className="shadow-sm"), md=6),
+                dbc.Col(
+                    info_card(
+                        "Müşteriyi en çok mutsuz eden faktör",
+                        "Teslimat Süresi",
+                        "Teslimat süresi uzadıkça 1 yıldızlı yorum ihtimali belirgin şekilde artıyor.",
+                        icon="⚠️",
+                    ),
+                    md=6,
+                ),
+                dbc.Col(
+                    info_card(
+                        "5 yıldızlı deneyimi en çok zayıflatan faktör",
+                        "Gecikme ve beklentinin aşılması",
+                        "Sipariş beklenenden geç geldikçe 5 yıldızlı yorum ihtimali düşüyor.",
+                        icon="⭐",
+                    ),
+                    md=6,
+                ),
             ],
             className="g-3",
         ),
-        dbc.Card(dbc.CardBody([dcc.Graph(figure=fig)]), className="shadow-sm mt-3"),
+
+        dbc.Card(
+            dbc.CardBody(
+                [
+                    html.Div(
+                        "Nasıl okunur? Sağa uzayan çubuklar mutsuzluk riskini artıran, sola uzayanlar memnuniyeti destekleyen etkiyi gösterir.",
+                        className="text-muted",
+                        style={"marginBottom": "10px"},
+                    ),
+                    dcc.Graph(figure=fig, config={"displayModeBar": True}),
+                ]
+            ),
+            className="shadow-sm mt-3",
+            style={"borderRadius": "14px"},
+        ),
+
+        dbc.Card(
+            dbc.CardBody(
+                [
+                    html.H5("Özet çıkarımlar", className="mb-2"),
+                    html.Ul(
+                        [
+                            html.Li("Teslimat süresi ve gecikme arttıkça memnuniyetsizlik yükseliyor."),
+                            html.Li("Çok satıcılı siparişler daha fazla sorun yaratıyor."),
+                            html.Li("Fiyatın etkisi, operasyonel faktörlere kıyasla daha sınırlı."),
+                        ],
+                        className="mb-0",
+                    ),
+                ]
+            ),
+            className="shadow-sm mt-3",
+            style={"borderRadius": "14px"},
+        ),
+
         dbc.Alert(
             [
-                html.B("Önerilen aksiyonlar: "),
-                "Teslimat süresini düşürmek (SLA), gecikmeyi azaltmak (operasyon), çok satıcılı siparişleri optimize etmek.",
+                html.B("Önerilen Aksiyonlar (Yönetim Perspektifi) "),
+                html.Ul(
+                    [
+                        html.Li("Teslimat süresi için net SLA’ler belirleyin ve takip edin."),
+                        html.Li("Gecikme ihtimali yüksek siparişleri proaktif yönetin (erken uyarı)."),
+                        html.Li("Çok satıcılı siparişleri sadeleştirin veya operasyonel olarak optimize edin."),
+                    ],
+                    className="mb-0",
+                ),
             ],
-            color="info",
+            color="primary",
             className="mt-3",
+            style={"borderRadius": "12px"},
         ),
     ],
     fluid=True,
