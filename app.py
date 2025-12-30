@@ -10,7 +10,7 @@ app = Dash(
 
 navbar = dbc.NavbarSimple(
     children=[
-        dbc.NavItem(dbc.NavLink("Home", href="/")),
+        dbc.NavItem(dbc.NavLink("Ana Sayfa", href="/")),
         dbc.DropdownMenu(
             children=[
                 dbc.DropdownMenuItem(
@@ -18,14 +18,14 @@ navbar = dbc.NavbarSimple(
                     href=page["relative_path"],
                 )
                 for page in dash.page_registry.values()
-                if page["path"] != "/"
+                if page.get("path") != "/"
             ],
             nav=True,
             in_navbar=True,
-            label="Pages",
+            label="Sayfalar",
         ),
     ],
-    brand="Olist CEO Request Dashboard",
+    brand="Olist CEO Talebi Dashboard",
     brand_href="/",
     color="primary",
     dark=True,

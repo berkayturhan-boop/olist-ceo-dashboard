@@ -2,17 +2,21 @@ import dash
 from dash import html
 import dash_bootstrap_components as dbc
 
-dash.register_page(__name__, path="/about", name="About")
+dash.register_page(__name__, path="/hakkinda", name="Hakkında")
 
 layout = dbc.Container(
     [
-        html.H2("What to tell the CEO", className="mt-4"),
+        html.H2("Bu dashboard ne söylüyor?", className="mt-4"),
         html.Ul(
             [
-                html.Li("Problem: bazı seller’lar net kârı aşağı çekiyor."),
-                html.Li("Approach: seller’ları kâra göre sıralayıp en kötüleri çıkarmanın etkisini simüle ediyoruz."),
-                html.Li("Decision: IT maliyeti dahil/dahil değil senaryoları ile optimum noktayı gösteriyoruz."),
+                html.Li("Her satıcı platforma değer katmıyor; bazıları net kârı düşürüyor."),
+                html.Li("En kötü satıcıları belirli bir noktaya kadar çıkarmak net kârı artırabiliyor."),
+                html.Li("IT maliyeti dahil edildiğinde optimum satıcı sayısı değişebiliyor."),
             ]
+        ),
+        dbc.Alert(
+            "Sunumda hedef: kod anlatmak değil, bu çıkarımlar üzerinden aksiyon önermek.",
+            color="info",
         ),
     ],
     fluid=True,
