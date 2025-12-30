@@ -72,18 +72,35 @@ def kpi_card(title, value, subtitle="", icon="", highlight: bool = False, badge_
 
 
 def build_waterfall(k):
+    # Renk Tanımlamaları (Standardize edildi)
+    COLOR_REVENUE = "#28a745"  # Yeşil
+    COLOR_COST = "#dc3545"     # Kırmızı
+    COLOR_TOTAL = "#0d6efd"    # Mavi (Bootstrap Primary)
+
     fig = go.Figure(
         go.Waterfall(
             orientation="v",
             measure=["relative", "relative", "total", "relative", "total", "relative", "total"],
+            # X ekseni kısaltıldı (Madde 4)
             x=[
                 "Abonelik",
                 "Komisyon",
                 "Toplam Gelir",
-                "Review Maliyeti",
+                "Review",
                 "Brüt Kâr",
-                "IT / Operasyon",
+                "IT/Oper.",
                 "Net Kâr",
+            ],
+            textposition="outside",
+            # Değer etiketleri BRL formatlı (Madde 2)
+            text=[
+                f"+{k['gelir_abonelik']/1e6:.1f}M",
+                f"+{k['gelir_satis_komisyonu']/1e6:.1f}M",
+                f"{k['toplam_gelir']/1e6:.1f}M",
+                f"-{k['maliyet_review']/1e6:.1f}M",
+                f"{k['brut_kar']/1e6:.1f}M",
+                f"-{k['it_maliyeti']/1e6:.1f}M",
+                f"<b>{k['net_kar']/1e6:.1f}M</b>", # Net Kâr daha belirgin
             ],
             y=[
                 k["gelir_abonelik"],
@@ -94,23 +111,43 @@ def build_waterfall(k):
                 -k["it_maliyeti"],
                 0,
             ],
-            connector={"line": {"width": 1}},
+            # Renkler standardize edildi (Madde 3)
+            decreasing={"marker": {"color": COLOR_COST}},
+            increasing={"marker": {"color": COLOR_REVENUE}},
+            totals={"marker": {"color": COLOR_TOTAL}},
+            connector={"line": {"width": 1, "color": "rgb(63, 63, 63)", "dash": "dot"}},
+            # Tooltip zenginleştirildi (Madde 5)
+            hovertemplate="<b>%{x}</b><br>Tutar: %{y:,.0f} BRL<extra></extra>"
         )
     )
 
-    # Sunumda yakınlaştırma gerekmemesi için fontları büyüt (+5–10%)
     fig.update_layout(
         title="Gelir → Maliyet → Net Kâr Akışı",
-        height=470,
-        margin=dict(l=30, r=20, t=70, b=35),
+        height=500,
+        margin=dict(l=30, r=20, t=80, b=40),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        legend_title_text="",
-        font=dict(size=15),  # genel font büyüdü
-        title_font=dict(size=20),  # başlık biraz daha büyük
+        font=dict(size=14, family="Inter, sans-serif"),
+        title_font=dict(size=22),
+        showlegend=False
     )
-    fig.update_xaxes(tickfont=dict(size=13))
-    fig.update_yaxes(title="BRL", zeroline=True, zerolinewidth=1, tickfont=dict(size=13))
+
+    # Grid ve 0 Çizgisi Ayarları (Madde 1)
+    fig.update_xaxes(
+        tickfont=dict(size=13, color="#495057"),
+        showgrid=False
+    )
+    
+    fig.update_yaxes(
+        title="BRL",
+        tickfont=dict(size=12, color="#6c757d"),
+        showgrid=True,             # Yatay grid çizgileri açık
+        gridcolor="rgba(0,0,0,0.05)", # Hafif belirgin grid
+        zeroline=True,             # 0 çizgisi aktif
+        zerolinewidth=2,           # 0 çizgisi kalınlaştırıldı
+        zerolinecolor="black"      # 0 çizgisi netleştirildi
+    )
+
     return fig
 
 

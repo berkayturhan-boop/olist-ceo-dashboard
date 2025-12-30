@@ -3,7 +3,8 @@ import dash
 from dash import html
 import dash_bootstrap_components as dbc
 
-dash.register_page(__name__, path="/hakkinda", name="Metadoloji")
+# Not: Navbar'da "Metodoloji" etiketi /hakkinda path'ine gidiyorsa burada path'i değiştirmiyoruz.
+dash.register_page(__name__, path="/hakkinda", name="Metodoloji")
 
 CARD_STYLE = {"borderRadius": "16px", "border": "none"}
 SECTION_CARD_CLASS = "shadow-sm mt-3"
@@ -15,7 +16,20 @@ def pill(text: str, color: str = "light"):
         color=color,
         pill=True,
         className="me-2",
-        style={"fontWeight": 600, "padding": "8px 10px"},
+        style={"fontWeight": 700, "padding": "8px 10px"},
+    )
+
+
+def mini_card(title: str, body: str):
+    return dbc.Card(
+        dbc.CardBody(
+            [
+                html.Div(title, className="text-muted fw-bold"),
+                html.Div(body, className="mt-2"),
+            ]
+        ),
+        className="h-100 shadow-sm border-0",
+        style=CARD_STYLE,
     )
 
 
@@ -26,7 +40,7 @@ layout = dbc.Container(
             [
                 dbc.Col(
                     [
-                        html.H2("ℹ️ Metadoloji", className="mt-4 mb-1 fw-bold"),
+                        html.H2("ℹ️ Metodoloji", className="mt-4 mb-1 fw-bold"),
                         html.P(
                             "Bu panel, Olist verisinden hareketle kârlılık ve memnuniyet dinamiklerini yönetim seviyesinde özetleyen "
                             "bir karar destek demosudur.",
@@ -34,9 +48,9 @@ layout = dbc.Container(
                         ),
                         html.Div(
                             [
-                                pill("BI / Yönetim Özeti", "primary"),
+                                pill("BI / Yönetim Özeti", "dark"),
                                 pill("Eğitim Senaryosu", "secondary"),
-                                pill("Aksiyon Odaklı", "info"),
+                                pill("Aksiyon Odaklı", "primary"),
                             ],
                             className="mt-3",
                         ),
@@ -61,50 +75,23 @@ layout = dbc.Container(
                     dbc.Row(
                         [
                             dbc.Col(
-                                dbc.Card(
-                                    dbc.CardBody(
-                                        [
-                                            html.Div("💰 Kârlılık fotoğrafı", className="text-muted fw-bold"),
-                                            html.Div(
-                                                "Mevcut durumda gelir–maliyet–net kâr dengemiz nasıl?",
-                                                className="mt-2",
-                                            ),
-                                        ]
-                                    ),
-                                    className="h-100 shadow-sm border-0",
-                                    style=CARD_STYLE,
+                                mini_card(
+                                    "💰 Finansal fotoğraf",
+                                    "Mevcut durumda gelir–maliyet–net kâr dengemiz nasıl?",
                                 ),
                                 md=4,
                             ),
                             dbc.Col(
-                                dbc.Card(
-                                    dbc.CardBody(
-                                        [
-                                            html.Div("🧹 Portföy optimizasyonu", className="text-muted fw-bold"),
-                                            html.Div(
-                                                "Zarar eden satıcıları çıkarmak net kârı artırır mı? En iyi nokta neresi?",
-                                                className="mt-2",
-                                            ),
-                                        ]
-                                    ),
-                                    className="h-100 shadow-sm border-0",
-                                    style=CARD_STYLE,
+                                mini_card(
+                                    "🧹 Portföy optimizasyonu",
+                                    "Zarar eden satıcıları çıkarmak net kârı artırır mı? En iyi nokta neresi?",
                                 ),
                                 md=4,
                             ),
                             dbc.Col(
-                                dbc.Card(
-                                    dbc.CardBody(
-                                        [
-                                            html.Div("⭐ Memnuniyet sürücüleri", className="text-muted fw-bold"),
-                                            html.Div(
-                                                "Müşteri memnuniyetini en çok etkileyen operasyonel faktörler neler?",
-                                                className="mt-2",
-                                            ),
-                                        ]
-                                    ),
-                                    className="h-100 shadow-sm border-0",
-                                    style=CARD_STYLE,
+                                mini_card(
+                                    "⭐ Memnuniyet sürücüleri",
+                                    "Müşteri memnuniyetini en çok etkileyen operasyonel faktörler neler?",
                                 ),
                                 md=4,
                             ),
@@ -124,7 +111,7 @@ layout = dbc.Container(
                     html.Div(
                         [
                             html.Span("🧾", style={"fontSize": "20px", "marginRight": "10px"}),
-                            html.H5("Varsayımlar (basit ve şeffaf)", className="mb-0 fw-bold"),
+                            html.H5("Varsayımlar", className="mb-0 fw-bold"),
                         ],
                         style={"display": "flex", "alignItems": "center"},
                         className="mb-3",
@@ -163,9 +150,15 @@ layout = dbc.Container(
                             html.B("Not: "),
                             "Bu çalışma eğitim amaçlıdır. Maliyet kalemleri gerçek şirket verisi değildir; amaç karar destek yaklaşımını göstermektir.",
                         ],
-                        color="info",
+                        color="primary",
                         className="mt-3 mb-0",
-                        style={"borderRadius": "14px"},
+                        style={
+                            "borderRadius": "14px",
+                            "backgroundColor": "#2b8fd8",
+                            "border": "none",
+                            "color": "white",
+                            "fontWeight": 600,
+                        },
                     ),
                 ]
             ),
@@ -188,50 +181,23 @@ layout = dbc.Container(
                     dbc.Row(
                         [
                             dbc.Col(
-                                dbc.Card(
-                                    dbc.CardBody(
-                                        [
-                                            html.Div("📊 CEO Özeti", className="text-muted fw-bold"),
-                                            html.Div(
-                                                "Mevcut durumun gelir–maliyet–net kâr kırılımı.",
-                                                className="mt-2",
-                                            ),
-                                        ]
-                                    ),
-                                    className="h-100 shadow-sm border-0",
-                                    style=CARD_STYLE,
+                                mini_card(
+                                    "📊 Finansal Özet",
+                                    "Mevcut durumun gelir–maliyet–net kâr kırılımı.",
                                 ),
                                 md=4,
                             ),
                             dbc.Col(
-                                dbc.Card(
-                                    dbc.CardBody(
-                                        [
-                                            html.Div("📈 Satıcı Çıkarma Etkisi", className="text-muted fw-bold"),
-                                            html.Div(
-                                                "En düşük performanslı satıcılar çıkarıldığında net kârın senaryo bazlı değişimi.",
-                                                className="mt-2",
-                                            ),
-                                        ]
-                                    ),
-                                    className="h-100 shadow-sm border-0",
-                                    style=CARD_STYLE,
+                                mini_card(
+                                    "📈 Portföy Optimizasyonu",
+                                    "En düşük performanslı satıcılar çıkarıldığında net kârın senaryo bazlı değişimi.",
                                 ),
                                 md=4,
                             ),
                             dbc.Col(
-                                dbc.Card(
-                                    dbc.CardBody(
-                                        [
-                                            html.Div("⭐ Memnuniyet Sürücüleri", className="text-muted fw-bold"),
-                                            html.Div(
-                                                "Memnuniyeti/mutsuzluğu artıran ana operasyonel unsurlar ve önerilen aksiyonlar.",
-                                                className="mt-2",
-                                            ),
-                                        ]
-                                    ),
-                                    className="h-100 shadow-sm border-0",
-                                    style=CARD_STYLE,
+                                mini_card(
+                                    "⭐ Memnuniyet Sürücüleri",
+                                    "Memnuniyeti/mutsuzluğu artıran ana operasyonel unsurlar ve önerilen aksiyonlar.",
                                 ),
                                 md=4,
                             ),
@@ -244,16 +210,22 @@ layout = dbc.Container(
             style=CARD_STYLE,
         ),
 
-        # Executive focus
+        # Executive focus (dark bar like other pages)
         dbc.Alert(
             [
                 html.Span("🧠 ", className="me-1"),
                 html.B("Sunum odağı: "),
                 "Kod değil; içgörü ve aksiyon. Bu panel, yönetime “ne yapmalıyız?” sorusunun kısa cevabını vermeyi hedefler.",
             ],
-            color="primary",
+            color="dark",
             className="mt-3",
-            style={"borderRadius": "14px"},
+            style={
+                "borderRadius": "14px",
+                "backgroundColor": "#263645",
+                "border": "none",
+                "color": "white",
+                "fontWeight": 600,
+            },
         ),
     ],
     fluid=True,
