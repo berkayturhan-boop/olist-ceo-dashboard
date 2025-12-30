@@ -10,173 +10,324 @@ from olist.seller_updated import Seller
 
 dash.register_page(__name__, path="/seller-impact", name="Satıcı Çıkarma Etkisi")
 
-ALPHA, BETA = 3157.27, 978.23
+# -----------------------------
+# Styling helpers (home + logit ile uyumlu)
+# -----------------------------
+CARD_STYLE = {"borderRadius": "14px"}
+SECTION_CARD_CLASS = "shadow-sm mt-3"
 
-
-def fmt_money(x: float) -> str:
+def brl(x: float) -> str:
     return f"{x:,.0f} BRL"
 
+def kpi_card(title: str, value: str, subtitle: str = "", icon: str = ""):
+    return dbc.Card(
+        dbc.CardBody(
+            [
+                html.Div(
+                    [
+                        html.Span(icon, style={"fontSize": "18px", "marginRight": "8px"}) if icon else None,
+                        html.Span(title, className="text-muted"),
+                    ],
+                    style={"display": "flex", "alignItems": "center"},
+                ),
+                html.H3(value, className="mt-2 mb-1"),
+                html.Div(subtitle, className="text-muted"),
+            ]
+        ),
+        className="shadow-sm h-100",
+        style=CARD_STYLE,
+    )
 
-def cost_of_it(df_cum: pd.DataFrame, alpha: float = ALPHA, beta: float = BETA) -> pd.Series:
+# -----------------------------
+# Data load
+# -----------------------------
+def load_sellers_df() -> pd.DataFrame:
+    seller = Seller()
+    return seller.get_training_data()
+
+SELLERS_DF = load_sellers_df().copy()
+
+# Bu sayfada "kâr" dediğimiz şey, training_data içindeki revenue/cost üzerinden:
+# gross_profit (IT hariç) = revenues - cost_of_reviews
+SELLERS_DF["gross_profit"] = SELLERS_DF["revenues"] - SELLERS_DF["cost_of_reviews"]
+
+# "En kötüden başla" = gross_profit en düşük olanlar önce çıkarılacak
+SELLERS_ASC = SELLERS_DF.sort_values("gross_profit", ascending=True).reset_index(drop=True)
+
+# "Kümülatif eğri"yi anlatmak için: en iyi satıcıları tutarak kârın nasıl değiştiği
+SELLERS_DESC = SELLERS_DF.sort_values("gross_profit", ascending=False).reset_index(drop=True)
+
+TOTAL_SELLERS = SELLERS_DF["seller_id"].nunique()
+TOTAL_ITEMS = int(SELLERS_DF["quantity"].sum())
+
+# -----------------------------
+# IT cost (home ile aynı mantıkta olmalı)
+# -----------------------------
+IT_BASE = 200_000
+IT_PER_SELLER = 50
+IT_PER_ITEM = 1.35
+
+def compute_it_cost(n_sellers: int, n_items: int) -> float:
+    return IT_BASE + IT_PER_SELLER * n_sellers + IT_PER_ITEM * n_items
+
+def scenario_totals(df: pd.DataFrame) -> dict:
+    n_sellers = df["seller_id"].nunique()
+    n_items = int(df["quantity"].sum())
+
+    revenue = float(df["revenues"].sum())
+    review_cost = float(df["cost_of_reviews"].sum())
+    gross_profit = float(df["gross_profit"].sum())
+
+    it_cost = float(compute_it_cost(n_sellers, n_items))
+    net_profit = gross_profit - it_cost
+
+    return {
+        "n_sellers": n_sellers,
+        "n_items": n_items,
+        "revenue": revenue,
+        "review_cost": review_cost,
+        "gross_profit": gross_profit,
+        "it_cost": it_cost,
+        "net_profit": net_profit,
+    }
+
+BASE = scenario_totals(SELLERS_DF)
+
+# -----------------------------
+# Figures
+# -----------------------------
+def build_profit_curve_fig(kept_count: int):
     """
-    df_cum: cumsum sonrası kolonlar:
-      - n_sellers (kümülatif satıcı sayısı)
-      - quantity  (kümülatif ürün/adet)
-    Pozitif IT maliyeti döndürür.
+    Soldaki çizgi grafik:
+    - X: tutulan satıcı sayısı (en iyi satıcılardan başlayarak)
+    - Y: kümülatif kâr
+    İki çizgi:
+      - IT hariç (gross)
+      - IT dahil (net)
     """
-    return alpha * (df_cum["n_sellers"] ** 0.5) + beta * (df_cum["quantity"] ** 0.5)
+    # En iyi satıcıları sırayla ekleyerek kümülatif topla
+    tmp = SELLERS_DESC.copy()
+    tmp["cum_sellers"] = range(1, len(tmp) + 1)
+    tmp["cum_items"] = tmp["quantity"].cumsum()
+    tmp["cum_revenue"] = tmp["revenues"].cumsum()
+    tmp["cum_review_cost"] = tmp["cost_of_reviews"].cumsum()
+    tmp["cum_gross_profit"] = tmp["cum_revenue"] - tmp["cum_review_cost"]
 
+    # kümülatif IT maliyeti (aynı formül)
+    tmp["cum_it_cost"] = tmp.apply(
+        lambda r: compute_it_cost(int(r["cum_sellers"]), int(r["cum_items"])),
+        axis=1,
+    )
+    tmp["cum_net_profit"] = tmp["cum_gross_profit"] - tmp["cum_it_cost"]
 
-def prepare_metrics() -> pd.DataFrame:
-    sellers = Seller().get_training_data()
+    fig = go.Figure()
 
-    metrics = sellers[["seller_id", "revenues", "cost_of_reviews", "profits", "quantity"]].copy()
+    fig.add_trace(
+        go.Scatter(
+            x=tmp["cum_sellers"],
+            y=tmp["cum_gross_profit"],
+            mode="lines",
+            name="Kâr (IT hariç)",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=tmp["cum_sellers"],
+            y=tmp["cum_net_profit"],
+            mode="lines",
+            name="Kâr (IT dahil)",
+        )
+    )
 
-    # "En kötü satıcı"yı tanımlamak için IT dahil kâra göre sıralayacağız.
-    # Bunun için satıcı bazında "yaklaşık" IT payı yerine kümülatif senaryo kullanacağız.
-    # Sıralama burada profits (IT hariç) ile başlar: en düşük kâr = en kötü.
-    metrics = metrics.sort_values("profits", ascending=False).reset_index(drop=True)
-    return metrics
+    # Seçili senaryo için dikey çizgi
+    fig.add_vline(
+        x=kept_count,
+        line_width=2,
+        line_dash="dash",
+        annotation_text="Seçili senaryo",
+        annotation_position="top",
+    )
 
+    fig.update_layout(
+        title="Kârın Satıcı Sayısına Göre Değişimi (en iyi satıcılardan başlayarak)",
+        height=420,
+        margin=dict(l=40, r=30, t=60, b=40),
+        legend_title_text="",
+        xaxis_title="Tutulan satıcı sayısı",
+        yaxis_title="Kâr (BRL)",
+    )
+    return fig
 
-metrics_ordered = prepare_metrics()
-MAX_REMOVE = len(metrics_ordered)
+def build_pl_snapshot_fig(totals: dict):
+    """
+    Sağdaki özet bar: Gelir / Review / IT / Net kâr
+    """
+    dfp = pd.DataFrame(
+        {
+            "Kalem": ["Gelir", "Review Maliyeti", "IT / Operasyon", "Net Kâr"],
+            "Tutar": [
+                totals["revenue"],
+                -totals["review_cost"],
+                -totals["it_cost"],
+                totals["net_profit"],
+            ],
+        }
+    )
 
+    fig = px.bar(
+        dfp,
+        x="Tutar",
+        y="Kalem",
+        orientation="h",
+        title="Senaryo Özeti (Gelir–Maliyet–Net Kâr)",
+    )
+    fig.update_layout(
+        height=420,
+        margin=dict(l=40, r=20, t=60, b=40),
+        xaxis_title="BRL",
+        yaxis_title="",
+        showlegend=False,
+    )
+    return fig
 
+# -----------------------------
+# Layout
+# -----------------------------
 layout = dbc.Container(
     [
         html.H2("Satıcı Çıkarma Etkisi", className="mt-4"),
         html.P(
-            "Slider ile en düşük performanslı satıcıları (zarar edenleri) çıkardığınızda toplam kârın nasıl değiştiğini görürsünüz.",
+            "Bu sayfa, en düşük performanslı satıcıları çıkardığımızda toplam kârın nasıl değiştiğini senaryo bazlı gösterir.",
             className="text-muted",
         ),
+
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.Div("Kaç satıcıyı çıkaralım? (En kötüden başlayarak)", className="mb-2"),
+                    html.Div(
+                        "Senaryo: “En kötü satıcılardan” başlayarak kaç satıcı çıkaralım?",
+                        className="text-muted",
+                        style={"marginBottom": "8px"},
+                    ),
                     dcc.Slider(
-                        id="remove_n",
+                        id="remove_sellers",
                         min=0,
-                        max=MAX_REMOVE,
+                        max=TOTAL_SELLERS,
                         step=1,
                         value=0,
                         tooltip={"placement": "bottom", "always_visible": False},
                     ),
-                    html.Div(id="remove_summary", className="text-muted mt-2"),
+                    html.Div(id="scenario_line", className="text-muted", style={"marginTop": "10px"}),
                 ]
             ),
             className="shadow-sm",
+            style=CARD_STYLE,
         ),
+
         dbc.Row(
             [
-                dbc.Col(
-                    dbc.Card(
-                        dbc.CardBody(
-                            [
-                                dcc.Graph(id="profit_curve"),
-                            ]
-                        ),
-                        className="shadow-sm mt-3",
-                    ),
-                    md=8,
-                ),
-                dbc.Col(
-                    dbc.Card(
-                        dbc.CardBody(
-                            [
-                                dcc.Graph(id="impact_barh"),
-                            ]
-                        ),
-                        className="shadow-sm mt-3",
-                    ),
-                    md=4,
-                ),
+                dbc.Col(kpi_card("Çıkarılan satıcı", "0", "En kötüden başlayarak", icon="🧹"), md=3),
+                dbc.Col(kpi_card("Kalan satıcı", f"{TOTAL_SELLERS}", "Mevcut durum", icon="🏪"), md=3),
+                dbc.Col(kpi_card("Net Kâr", brl(BASE["net_profit"]), "IT dahil", icon="📈"), md=3),
+                dbc.Col(kpi_card("Değişim", brl(0), "Mevcut duruma göre", icon="🧭"), md=3),
             ],
-            className="g-3",
+            id="kpi_row",
+            className="g-3 mt-0",
         ),
+
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.B("Nasıl okunur? "),
-                    "Solda tutulan satıcı sayısına göre kârın nasıl değiştiği, sağda seçilen senaryonun gelir–maliyet–net kâr özeti yer alır.",
+                    html.Div(
+                        "Nasıl okunur? Solda satıcı sayısı arttıkça kârın nasıl değiştiğini görürsünüz. "
+                        "Sağda ise seçili senaryonun gelir–maliyet–net kâr özeti vardır.",
+                        className="text-muted",
+                        style={"marginBottom": "10px"},
+                    ),
+                    dbc.Row(
+                        [
+                            dbc.Col(dcc.Graph(id="profit_curve"), md=8),
+                            dbc.Col(dcc.Graph(id="pl_snapshot"), md=4),
+                        ],
+                        className="g-3",
+                    ),
                 ]
             ),
-            className="shadow-sm mt-3",
+            className=SECTION_CARD_CLASS,
+            style=CARD_STYLE,
+        ),
+
+        dbc.Card(
+            dbc.CardBody(
+                [
+                    html.H5("Özet çıkarımlar", className="mb-2"),
+                    html.Ul(
+                        [
+                            html.Li("Bazı satıcılar toplam kârı aşağı çekebilir; yönetim için aksiyon alanı oluşturur."),
+                            html.Li("Kârın tepe yaptığı noktada ‘gereksiz zarar’ minimize edilir."),
+                            html.Li("Karar önerisi: Zarar eden satıcıları iyileştirme planı + gerekiyorsa portföyden çıkarma."),
+                        ],
+                        className="mb-0",
+                    ),
+                ]
+            ),
+            className=SECTION_CARD_CLASS,
+            style=CARD_STYLE,
+        ),
+
+        dbc.Alert(
+            [
+                html.B("Sunum mesajı: "),
+                "Hedef ‘satıcı sayısını azaltmak’ değil; toplam kârı düşüren satıcıları tespit edip aksiyon almak "
+                "(iyileştirmek, şartları güncellemek veya portföyden çıkarmak).",
+            ],
+            color="primary",
+            className="mt-3",
+            style={"borderRadius": "12px"},
         ),
     ],
     fluid=True,
 )
 
-
+# -----------------------------
+# Callback
+# -----------------------------
 @dash.callback(
-    Output("remove_summary", "children"),
     Output("profit_curve", "figure"),
-    Output("impact_barh", "figure"),
-    Input("remove_n", "value"),
+    Output("pl_snapshot", "figure"),
+    Output("scenario_line", "children"),
+    Output("kpi_row", "children"),
+    Input("remove_sellers", "value"),
 )
-def update_impact(remove_n: int):
-    # Slider=0 -> tüm satıcılar kalır (Home ile aynı olmalı)
-    kept = metrics_ordered.iloc[: len(metrics_ordered) - remove_n].copy()
+def update_scenario(remove_n: int):
+    remove_n = int(remove_n or 0)
 
-    if len(kept) == 0:
-        empty_fig = go.Figure()
-        empty_fig.update_layout(height=450, margin=dict(l=20, r=20, t=60, b=30))
-        return "Tüm satıcılar çıkarıldı.", empty_fig, empty_fig
+    # Senaryo: en kötüden remove_n satıcıyı çıkar
+    kept_df = SELLERS_ASC.iloc[remove_n:].copy()
+    totals = scenario_totals(kept_df)
 
-    # Kümülatif hesap
-    cum = kept[["revenues", "cost_of_reviews", "profits", "quantity"]].copy()
-    cum["n_sellers"] = 1  # <-- kritik: kümülatifte 1,2,3... artsın
-    cum = cum.cumsum()
+    kept_count = totals["n_sellers"]
+    removed_count = TOTAL_SELLERS - kept_count
 
-    it_costs = cost_of_it(cum)
-    cum["it_costs"] = -it_costs  # grafikte maliyet negatif dursun
-    cum["profits_after_it"] = cum["profits"] + cum["it_costs"]
+    # Grafikler
+    fig_left = build_profit_curve_fig(kept_count=kept_count)
+    fig_right = build_pl_snapshot_fig(totals)
 
-    profit_no_it = float(cum["profits"].iloc[-1])
-    profit_after_it = float(cum["profits_after_it"].iloc[-1])
+    # Üst bilgi satırı
+    delta = totals["net_profit"] - BASE["net_profit"]
+    delta_txt = f"{'+' if delta >= 0 else ''}{brl(delta)}"
 
-    summary = (
-        f"Çıkarılan: {remove_n} | Kalan: {len(kept)} | "
-        f"Kâr (IT hariç): {fmt_money(profit_no_it)} | "
-        f"Kâr (IT dahil): {fmt_money(profit_after_it)}"
+    scenario_text = (
+        f"Çıkarılan: {removed_count} | Kalan: {kept_count} | "
+        f"Net Kâr (IT dahil): {brl(totals['net_profit'])} | Değişim: {delta_txt}"
     )
 
-    # --- Sol grafik: kâr eğrisi (IT hariç & IT dahil)
-    fig_curve = go.Figure()
-    fig_curve.add_trace(go.Scatter(x=cum["n_sellers"], y=cum["profits"], mode="lines", name="Kâr (IT hariç)"))
-    fig_curve.add_trace(go.Scatter(x=cum["n_sellers"], y=cum["profits_after_it"], mode="lines", name="Kâr (IT dahil)"))
-    fig_curve.update_layout(
-        title="Toplam Kâr (Tutulan Satıcı Sayısına Göre)",
-        xaxis_title="Tutulan satıcı sayısı (kümülatif)",
-        yaxis_title="Kâr (BRL)",
-        height=450,
-        margin=dict(l=20, r=20, t=60, b=30),
-    )
+    # KPI row (güncel)
+    kpis = [
+        dbc.Col(kpi_card("Çıkarılan satıcı", f"{removed_count}", "En kötüden başlayarak", icon="🧹"), md=3),
+        dbc.Col(kpi_card("Kalan satıcı", f"{kept_count}", "Seçili senaryo", icon="🏪"), md=3),
+        dbc.Col(kpi_card("Net Kâr", brl(totals["net_profit"]), "IT dahil", icon="📈"), md=3),
+        dbc.Col(kpi_card("Değişim", delta_txt, "Mevcut duruma göre", icon="🧭"), md=3),
+    ]
 
-    # --- Sağ grafik: senaryo özeti
-    revenues_total = float(cum["revenues"].iloc[-1])
-    review_costs = float(cum["cost_of_reviews"].iloc[-1])
-    it_costs_last = float(cum["it_costs"].iloc[-1])  # negatif
-    impact = pd.DataFrame(
-        {
-            "Kalem": ["Gelir", "Review Maliyeti", "IT Maliyeti", "Net Kâr (IT dahil)"],
-            "Tutar": [revenues_total, -review_costs, it_costs_last, profit_after_it],
-        }
-    )
-
-    fig_barh = px.bar(
-        impact,
-        x="Tutar",
-        y="Kalem",
-        orientation="h",
-        title="Senaryo Özeti (Gelir–Maliyet–Kâr)",
-    )
-    fig_barh.update_layout(
-        height=450,
-        margin=dict(l=20, r=20, t=60, b=30),
-        xaxis_title="BRL",
-        yaxis_title="",
-        showlegend=False,
-    )
-
-    return summary, fig_curve, fig_barh
+    return fig_left, fig_right, scenario_text, kpis

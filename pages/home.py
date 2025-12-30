@@ -8,31 +8,53 @@ from olist.seller_updated import Seller
 
 dash.register_page(__name__, path="/", name="Özet (CEO)")
 
-# Seller Impact ile aynı parametreler
-ALPHA, BETA = 3157.27, 978.23
-
-
+# -----------------------------
+# Data
+# -----------------------------
 def load_sellers():
     seller = Seller()
     return seller.get_training_data()
 
+# -----------------------------
+# Formatting
+# -----------------------------
+def brl(value: float) -> str:
+    return f"{value:,.0f} BRL"
 
-def cost_of_it(n_sellers: int, quantity_sum: float, alpha: float = ALPHA, beta: float = BETA) -> float:
-    return alpha * (n_sellers ** 0.5) + beta * (quantity_sum ** 0.5)
+CARD_STYLE = {"borderRadius": "14px"}
+SECTION_CARD_CLASS = "shadow-sm mt-3"
 
+# -----------------------------
+# IT cost (home & seller_impact aynı olmalı)
+# -----------------------------
+# Eğer seller_impact içinde farklı bir IT hesabı kullanıyorsanız,
+# burayı onunla birebir aynı yapın.
+IT_BASE = 200_000
+IT_PER_SELLER = 50
+IT_PER_ITEM = 1.35
 
-def build_kpis(sellers):
-    gelir_satis_komisyonu = sellers.sales.sum() * 0.10
-    gelir_abonelik = sellers.months_on_olist.sum() * 80
-    toplam_gelir = sellers.revenues.sum()
+def compute_it_cost(n_sellers: int, n_items: int) -> float:
+    return IT_BASE + IT_PER_SELLER * n_sellers + IT_PER_ITEM * n_items
 
-    maliyet_review = sellers.cost_of_reviews.sum()
+# -----------------------------
+# KPI + Waterfall
+# -----------------------------
+def build_kpis(sellers_df):
+    # Gelir kırılımı
+    gelir_satis_komisyonu = sellers_df["sales"].sum() * 0.10
+    gelir_abonelik = sellers_df["months_on_olist"].sum() * 80
+    toplam_gelir = gelir_satis_komisyonu + gelir_abonelik
 
-    n_sellers = sellers["seller_id"].nunique()
-    quantity_sum = sellers["quantity"].sum()
-    it_maliyeti = cost_of_it(n_sellers=n_sellers, quantity_sum=quantity_sum)
+    # Maliyetler
+    maliyet_review = sellers_df["cost_of_reviews"].sum()
 
-    brut_kar = sellers.profits.sum()
+    # IT maliyeti (dinamik/varsayım)
+    n_sellers = sellers_df["seller_id"].nunique()
+    n_items = int(sellers_df["quantity"].sum())
+    it_maliyeti = compute_it_cost(n_sellers, n_items)
+
+    # Kâr
+    brut_kar = toplam_gelir - maliyet_review
     net_kar = brut_kar - it_maliyeti
 
     return {
@@ -44,26 +66,27 @@ def build_kpis(sellers):
         "brut_kar": brut_kar,
         "net_kar": net_kar,
         "n_sellers": n_sellers,
-        "quantity_sum": quantity_sum,
+        "n_items": n_items,
     }
 
-
-def brl(value):
-    return f"{value:,.0f} BRL"
-
-
-def kpi_card(title, value, subtitle=""):
+def kpi_card(title: str, value: float, subtitle: str = "", icon: str = ""):
     return dbc.Card(
         dbc.CardBody(
             [
-                html.Div(title, className="text-muted"),
-                html.H3(brl(value)),
+                html.Div(
+                    [
+                        html.Span(icon, style={"fontSize": "18px", "marginRight": "8px"}) if icon else None,
+                        html.Span(title, className="text-muted"),
+                    ],
+                    style={"display": "flex", "alignItems": "center"},
+                ),
+                html.H3(brl(value), className="mt-2 mb-1"),
                 html.Div(subtitle, className="text-muted"),
             ]
         ),
-        className="shadow-sm",
+        className="shadow-sm h-100",
+        style=CARD_STYLE,
     )
-
 
 def build_waterfall(k):
     fig = go.Figure(
@@ -90,64 +113,119 @@ def build_waterfall(k):
             ],
         )
     )
+
     fig.update_layout(
-        title="Gelir–Maliyet Akışı (Waterfall)",
-        margin=dict(l=30, r=30, t=60, b=30),
+        title="Gelir–Maliyet Akışı",
         height=450,
+        margin=dict(l=30, r=30, t=60, b=30),
+        showlegend=False,
     )
     return fig
 
-
+# -----------------------------
+# Build page
+# -----------------------------
 sellers_df = load_sellers()
 k = build_kpis(sellers_df)
 wf_fig = build_waterfall(k)
 
 layout = dbc.Container(
     [
+        # Header
         html.H2("CEO Özeti", className="mt-4"),
         html.P(
-            "Amaç: Kârlılığı artırmak için zarar eden satıcıların etkisini hızlıca göstermek.",
+            "Bu sayfa mevcut durumu (hiç satıcı çıkarmadan) gelir–maliyet–kâr kırılımıyla özetler.",
             className="text-muted",
         ),
+
+        # KPI row (logit sayfasındaki gibi)
         dbc.Row(
             [
-                dbc.Col(kpi_card("Toplam Gelir", k["toplam_gelir"], "Abonelik + Komisyon"), md=3),
-                dbc.Col(kpi_card("Review Maliyeti", k["maliyet_review"], "Operasyon maliyeti"), md=3),
                 dbc.Col(
                     kpi_card(
-                        "IT Maliyeti (dinamik)",
-                        k["it_maliyeti"],
-                        f"{k['n_sellers']} satıcı • {k['quantity_sum']:,.0f} ürün",
+                        "Toplam Gelir",
+                        k["toplam_gelir"],
+                        "Abonelik + Komisyon",
+                        icon="💰",
                     ),
                     md=3,
                 ),
-                dbc.Col(kpi_card("Net Kâr (IT dahil)", k["net_kar"], "Brüt Kâr - IT"), md=3),
+                dbc.Col(
+                    kpi_card(
+                        "Review Maliyeti",
+                        k["maliyet_review"],
+                        "Müşteri memnuniyetsizliği maliyeti",
+                        icon="🧾",
+                    ),
+                    md=3,
+                ),
+                dbc.Col(
+                    kpi_card(
+                        "IT / Operasyon Maliyeti",
+                        k["it_maliyeti"],
+                        f"{k['n_sellers']} satıcı • {k['n_items']:,} ürün (varsayım)",
+                        icon="🖥️",
+                    ),
+                    md=3,
+                ),
+                dbc.Col(
+                    kpi_card(
+                        "Net Kâr",
+                        k["net_kar"],
+                        "Brüt Kâr - IT",
+                        icon="📈",
+                    ),
+                    md=3,
+                ),
             ],
             className="g-3",
         ),
-        dbc.Row(
-            [
-                dbc.Col(
-                    dbc.Card(
-                        dbc.CardBody(
-                            [
-                                html.H5("Gelir–Maliyet Özet Grafiği", className="mb-2"),
-                                dcc.Graph(figure=wf_fig),
-                            ]
-                        ),
-                        className="shadow-sm mt-3",
+
+        # Main chart section
+        dbc.Card(
+            dbc.CardBody(
+                [
+                    html.Div(
+                        "Nasıl okunur? Yeşil bloklar geliri, kırmızı bloklar maliyetleri gösterir. "
+                        "En sağdaki Net Kâr, tüm gelirlerden tüm maliyetler çıktıktan sonra kalan tutardır.",
+                        className="text-muted",
+                        style={"marginBottom": "10px"},
                     ),
-                    md=12,
-                )
-            ]
+                    dcc.Graph(figure=wf_fig, config={"displayModeBar": True}),
+                ]
+            ),
+            className=SECTION_CARD_CLASS,
+            style=CARD_STYLE,
         ),
+
+        # Insights section (logit sayfasındaki “Özet çıkarımlar” gibi)
+        dbc.Card(
+            dbc.CardBody(
+                [
+                    html.H5("Özet çıkarımlar", className="mb-2"),
+                    html.Ul(
+                        [
+                            html.Li("Gelirin ana kaynağı: abonelik ve satış komisyonu."),
+                            html.Li("En büyük maliyet kalemi: review maliyeti (memnuniyetsizlik)."),
+                            html.Li("Net kârı artırmak için iki kaldıraç var: operasyonel gecikmeleri azaltmak ve zarar eden satıcıları yönetmek."),
+                        ],
+                        className="mb-0",
+                    ),
+                ]
+            ),
+            className=SECTION_CARD_CLASS,
+            style=CARD_STYLE,
+        ),
+
+        # CTA / next step (seller_impact’e köprü kuran)
         dbc.Alert(
             [
-                html.B("Sunum mesajı: "),
-                "Her satıcı değer yaratmıyor. Zarar eden satıcılar çıkarıldığında net kâr artabiliyor.",
+                html.B("Sonraki adım: "),
+                "“Satıcı Çıkarma Etkisi” sayfasında, en düşük performanslı satıcıları çıkardığımızda net kârın nasıl değiştiğini senaryo bazlı inceleyebilirsiniz.",
             ],
-            color="info",
+            color="primary",
             className="mt-3",
+            style={"borderRadius": "12px"},
         ),
     ],
     fluid=True,
