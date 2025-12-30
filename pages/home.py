@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 
 from olist.seller_updated import Seller
 
-dash.register_page(__name__, path="/", name="CEO Özeti")
+dash.register_page(__name__, path="/", name="Finansal Özet")
 
 # -----------------------------
 # Styling (BI uyumlu)
@@ -151,7 +151,7 @@ wf_fig = build_waterfall(k)
 # -----------------------------
 layout = dbc.Container(
     [
-        html.H2("CEO Özeti — Mevcut Durum", className="mt-4 mb-1 fw-bold"),
+        html.H2("Finansal Özet — Mevcut Durum", className="mt-4 mb-1 fw-bold"),
         html.P(
             "Hiç satıcı çıkarmadan, bugünkü tabloyu gelir–maliyet–net kâr kırılımıyla özetler.",
             className="text-muted mb-3",

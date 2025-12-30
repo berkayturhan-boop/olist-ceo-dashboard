@@ -3,7 +3,7 @@ import dash
 from dash import html
 import dash_bootstrap_components as dbc
 
-dash.register_page(__name__, path="/hakkinda", name="Hakkında")
+dash.register_page(__name__, path="/hakkinda", name="Metadoloji")
 
 CARD_STYLE = {"borderRadius": "16px", "border": "none"}
 SECTION_CARD_CLASS = "shadow-sm mt-3"
@@ -26,7 +26,7 @@ layout = dbc.Container(
             [
                 dbc.Col(
                     [
-                        html.H2("ℹ️ Hakkında", className="mt-4 mb-1 fw-bold"),
+                        html.H2("ℹ️ Metadoloji", className="mt-4 mb-1 fw-bold"),
                         html.P(
                             "Bu panel, Olist verisinden hareketle kârlılık ve memnuniyet dinamiklerini yönetim seviyesinde özetleyen "
                             "bir karar destek demosudur.",
