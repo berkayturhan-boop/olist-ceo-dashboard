@@ -1,39 +1,54 @@
+# pages/home.py
 import dash
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
-import numpy as np
 
 from olist.seller_updated import Seller
 
 dash.register_page(__name__, path="/", name="CEO Özeti")
 
-CARD_STYLE = {"borderRadius": "14px"}
+# -----------------------------
+# Styling (BI uyumlu)
+# -----------------------------
+CARD_STYLE = {"borderRadius": "16px", "border": "none"}
+SECTION_CARD_CLASS = "shadow-sm mt-3"
 
-# Seller Impact ile aynı IT maliyeti modeli (senkron olsun diye)
+# Seller Impact ile aynı IT maliyeti modeli (senkron)
 ALPHA, BETA = 3157.27, 978.23
 
+
 def cost_of_it(n_sellers: int, quantity: float) -> float:
-    return ALPHA * (n_sellers ** 0.5) + BETA * (quantity ** 0.5)
+    return ALPHA * (n_sellers**0.5) + BETA * (quantity**0.5)
+
 
 def load_sellers():
     return Seller().get_training_data()
 
-def tl(value):
+
+def brl(value: float) -> str:
     return f"{value:,.0f} BRL"
+
 
 def kpi_card(title, value, subtitle="", icon=""):
     return dbc.Card(
         dbc.CardBody(
             [
-                html.Div(f"{icon}  {title}".strip(), className="text-muted"),
-                html.H3(tl(value), className="mt-1"),
+                html.Div(
+                    [
+                        html.Span(icon, style={"fontSize": "18px", "marginRight": "8px"}) if icon else None,
+                        html.Span(title, className="text-muted fw-semibold"),
+                    ],
+                    style={"display": "flex", "alignItems": "center"},
+                ),
+                html.H3(brl(value), className="mt-2 mb-1 fw-bold"),
                 html.Div(subtitle, className="text-muted"),
             ]
         ),
-        className="shadow-sm",
+        className="shadow-sm h-100",
         style=CARD_STYLE,
     )
+
 
 def build_waterfall(k):
     fig = go.Figure(
@@ -41,12 +56,12 @@ def build_waterfall(k):
             orientation="v",
             measure=["relative", "relative", "total", "relative", "total", "relative", "total"],
             x=[
-                "Aylık Abonelik",
-                "Satış Komisyonu",
+                "Abonelik",
+                "Komisyon",
                 "Toplam Gelir",
                 "Review Maliyeti",
                 "Brüt Kâr",
-                "IT Maliyeti",
+                "IT / Operasyon",
                 "Net Kâr",
             ],
             y=[
@@ -58,33 +73,43 @@ def build_waterfall(k):
                 -k["it_maliyeti"],
                 0,
             ],
+            connector={"line": {"width": 1}},
         )
     )
+
     fig.update_layout(
-        title="Gelir–Maliyet Akışı",
-        margin=dict(l=30, r=30, t=60, b=30),
+        title="Gelir → Maliyet → Net Kâr Akışı",
         height=460,
+        margin=dict(l=30, r=20, t=60, b=30),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        legend_title_text="",
     )
+    fig.update_yaxes(title="BRL", zeroline=True, zerolinewidth=1)
     return fig
 
+
+# -----------------------------
+# Compute KPIs (Mevcut durum)
+# -----------------------------
 sellers = load_sellers()
 
 gelir_satis_komisyonu = sellers["sales"].sum() * 0.10
 gelir_abonelik = sellers["months_on_olist"].sum() * 80
-toplam_gelir = sellers["revenues"].sum()
+toplam_gelir = float(sellers["revenues"].sum())
 
-maliyet_review = sellers["cost_of_reviews"].sum()
+maliyet_review = float(sellers["cost_of_reviews"].sum())
 
 n_sellers = int(sellers["seller_id"].nunique())
 quantity = float(sellers["quantity"].sum())
-it_maliyeti = cost_of_it(n_sellers, quantity)
+it_maliyeti = float(cost_of_it(n_sellers, quantity))
 
-brut_kar = sellers["profits"].sum()
+brut_kar = float(sellers["profits"].sum())
 net_kar = brut_kar - it_maliyeti
 
 k = {
-    "gelir_satis_komisyonu": gelir_satis_komisyonu,
-    "gelir_abonelik": gelir_abonelik,
+    "gelir_satis_komisyonu": float(gelir_satis_komisyonu),
+    "gelir_abonelik": float(gelir_abonelik),
     "toplam_gelir": toplam_gelir,
     "maliyet_review": maliyet_review,
     "it_maliyeti": it_maliyeti,
@@ -96,65 +121,82 @@ k = {
 
 wf_fig = build_waterfall(k)
 
+# -----------------------------
+# Layout
+# -----------------------------
 layout = dbc.Container(
     [
-        html.H2("CEO Özeti", className="mt-4"),
+        html.H2("CEO Özeti — Mevcut Durum", className="mt-4 mb-1 fw-bold"),
         html.P(
-            "Bu sayfa mevcut durumu (hiç satıcı çıkarmadan) gelir–maliyet–kâr kırılımıyla özetler.",
-            className="text-muted",
+            "Hiç satıcı çıkarmadan, bugünkü tabloyu gelir–maliyet–net kâr kırılımıyla özetler.",
+            className="text-muted mb-3",
         ),
 
+        # KPI row
         dbc.Row(
             [
                 dbc.Col(kpi_card("Toplam Gelir", k["toplam_gelir"], "Abonelik + Komisyon", "💰"), md=3),
-                dbc.Col(kpi_card("Review Maliyeti", k["maliyet_review"], "Memnuniyetsizliğin finansal yükü", "🧾"), md=3),
-                dbc.Col(kpi_card("IT / Operasyon Maliyeti", k["it_maliyeti"], f"{k['n_sellers']} satıcı • {int(k['quantity']):,} ürün (varsayım)", "🖥️"), md=3),
-                dbc.Col(kpi_card("Net Kâr", k["net_kar"], "Brüt Kâr - IT", "📈"), md=3),
+                dbc.Col(kpi_card("Review Maliyeti", k["maliyet_review"], "Memnuniyetsizliğin maliyeti", "🧾"), md=3),
+                dbc.Col(
+                    kpi_card(
+                        "IT / Operasyon",
+                        k["it_maliyeti"],
+                        f"{k['n_sellers']} satıcı • {int(k['quantity']):,} ürün (varsayım)",
+                        "🖥️",
+                    ),
+                    md=3,
+                ),
+                dbc.Col(kpi_card("Net Kâr", k["net_kar"], "Brüt kâr − IT/operasyon", "📈"), md=3),
             ],
             className="g-3",
         ),
 
+        # Main chart section
         dbc.Card(
             dbc.CardBody(
                 [
                     html.Div(
-                        "Nasıl okunur? Yeşil bloklar geliri, kırmızı bloklar maliyetleri gösterir. En sağdaki Net Kâr, tüm gelirlerden tüm maliyetler çıktıktan sonra kalan tutardır.",
+                        "Nasıl okunur? Yeşil bloklar gelir, kırmızı bloklar maliyet. En sağdaki Net Kâr, tüm gelirlerden tüm maliyetler çıktıktan sonra kalan tutardır.",
                         className="text-muted",
                     ),
-                    dcc.Graph(figure=wf_fig, className="mt-2"),
+                    dcc.Graph(figure=wf_fig, className="mt-2", config={"displayModeBar": False}),
                 ]
             ),
-            className="shadow-sm mt-3",
+            className=SECTION_CARD_CLASS,
             style=CARD_STYLE,
         ),
 
+        # Insights section (BI-style)
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H5("Özet çıkarımlar", className="mb-2"),
+                    html.H5("📌 Yönetim için net çıkarımlar", className="mb-2 fw-bold"),
                     html.Ul(
                         [
                             html.Li("Gelirin ana kaynağı: abonelik ve satış komisyonu."),
                             html.Li("En büyük maliyet kalemi: review maliyeti (memnuniyetsizlik)."),
-                            html.Li("Net kârı artırmak için iki kaldıraç var: operasyonel gecikmeleri azaltmak ve zarar eden satıcıları yönetmek."),
+                            html.Li("Net kâr için iki kaldıraç: teslimat/gecikme performansını iyileştirmek + zarar eden satıcıları yönetmek."),
                         ],
                         className="mb-0",
                     ),
                 ]
             ),
-            className="shadow-sm mt-3",
+            className=SECTION_CARD_CLASS,
             style=CARD_STYLE,
         ),
 
+        # Next step (bridge)
         dbc.Alert(
             [
+                html.Span("➡️ ", className="me-1"),
                 html.B("Sonraki adım: "),
                 "“Satıcı Çıkarma Etkisi” sayfasında, en düşük performanslı satıcıları çıkardığımızda net kârın nasıl değiştiğini senaryo bazlı inceleyebilirsiniz.",
             ],
             color="primary",
             className="mt-3",
-            style={"borderRadius": "12px"},
+            style={"borderRadius": "14px"},
         ),
     ],
     fluid=True,
+    className="pb-4",
 )
