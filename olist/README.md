@@ -1,106 +1,86 @@
-## Olist Classes
+# 📊 Olist | CEO Yönetim İçgörü Paneli (Decision Support Dashboard)
 
-This folder contains Olist Classes that handle the logic of data cleaning for our project.
+> **Proje Hakkında**
+> Bu proje, **Workintech Veri Bilimi Bootcamp**'i kapsamında verilen bitirme projesi temel alınarak geliştirilmiştir. Orijinal yapı ve veri mühendisliği süreçleri **4 kişilik bir ekip çalışmasıyla** (Agile) kurgulanmış; finansal dashboard tasarımı, müşteri memnuniyeti analizi (Logit) ve interaktif simülasyon modülleri tarafımca eklenerek final haline getirilmiştir.
 
-For example, the below returns data as a Python dictionary using the `get_data` method from the `Olist` class:
+![Financial Dashboard Preview](https://github.com/tmy-datamesa/CEO_talebi_takim1/assets/buraya-resim-linki-gelecek)
+*(Yukarıya Finansal Özet ekran görüntüsünü ekleyin)*
 
-```python
-from olist.data import Olist
-olist = Olist()
-data = olist.get_data()
-```
+## 🚀 Projenin Amacı
+Bu panel, operasyonel memnuniyet metriklerini **finansal etkiye** çeviren ve buradan **portföy optimizasyonu** aksiyonuna giden, yönetim (C-Level) seviyesinde bir karar destek mekanizması sunar.
 
-### Data
+Panel 3 adımdan oluşan bir **stratejik yol haritası** izler:
+1.  **Müşteri Deneyimi** (Sorun nerede?)
+2.  **Finansal Etki** (Bize maliyeti ne?)
+3.  **Stratejik Aksiyon** (Ne yapmalıyız?)
 
-```python
-from olist.data import Olist
-```
+## 💡 Çözülen Problemler (CEO'nun Soruları)
+Yönetimin cevap aradığı 3 kritik soruya odaklanılır:
 
-Main methods:
+* **Memnuniyet Sürücüleri:** “Müşteri puanlarını (Review Score) düşüren asıl operasyonel faktörler neler?”
+* **Finansal Özet:** “Kötü hizmet ve verimsiz satıcılar kârlılığımızı ne kadar eritiyor?”
+* **Portföy Optimizasyonu:** “En düşük performanslı satıcıları sistemden çıkardığımızda net kârımız maksimize olur mu?”
 
-- `get_data`: returns all Olist datasets as DataFrames within a Python dict.
+---
 
-### Order
+## 🧭 Uygulama Sayfaları & Analizler
 
-```python
-from olist.order import Order
-```
+### 1. Finansal Özet — Mevcut Durum (Waterfall Analizi)
+Gelir ve maliyet kalemlerinin net kâra etkisini şelale grafiği ile gösterir.
+* **Öne Çıkanlar:** Abonelik gelirleri, Review (İtibar) maliyetleri ve Operasyonel giderler.
+* **Dosya:** `pages/home.py`
 
-Main method: 
-- `get_training_data`: returns a DataFrame with: 
-   - `order_id` (unique)
-   - `wait_time`
-   - `expected_wait_time`
-   - `delay_vs_expected`
-   -  `order_status`
-   - `dim_is_five_star`
-   - `dim_is_one_star`
-   - `review_score`
-   -  `number_of_products`
-   - `number_of_sellers`
-   - `price`
-   - `freight_value`
-   - `distance_seller_customer`
+### 2. Memnuniyet Sürücüleri (Logit Modeli)
+Lojistik Regresyon (Logit) algoritması kullanılarak "1 Yıldız" ve "5 Yıldız" alma olasılıkları modellenmiştir.
+* **İçgörü:** Bekleme süresi (`wait_time`) arttıkça 1 yıldız riski katlanarak artmaktadır.
+* **Dosya:** `pages/logit_insights.py`
 
-### Seller
+### 3. Portföy Optimizasyonu (Simülasyon)
+"Zarar eden satıcıları çıkarırsak ne olur?" sorusunun cevabıdır.
+* **Özellik:** Slider ile interaktif senaryo analizi.
+* **Çıktı:** Kârı maksimize eden optimum satıcı sayısı ve tahmini finansal kazanç.
+* **Dosya:** `pages/seller_impact.py`
 
-```python
-from olist.seller import Seller
-```
+---
 
-Main method:
-- `get_training_data`: returns a DataFrame with:
-   - `seller_id` (unique)
-   - `seller_city`
-   - `seller_state`
-   - `delay_to_carrier`
-   - `wait_time`
-   - `date_first_sale`
-   - `date_last_sale`
-   - `months_on_olist`
-   - `share_of_one_stars`
-   - `share_of_five_stars`
-   - `review_score`
-   - `n_orders`
-   - `quantity`
-   - `quantity_per_order`
-   - `sales`
+## 🛠 Kullanılan Teknolojiler
 
-### Product
+* **Python 3.x**
+* **Dash & Plotly:** İnteraktif Dashboard arayüzü
+* **Pandas:** Veri manipülasyonu
+* **Scikit-learn:** Lojistik Regresyon modellemesi
+* **Statsmodels:** İstatistiksel çıkarımlar
 
-```python
-from olist.product import Product
-```
+## 👥 Proje Ekibi (Contributors)
 
-Main method:
-- `get_training_data`: returns a DataFrame with 
-   - `product_id` (unique)
-   - `product_name_length`
-   - `product_description_length`
-   - `product_photos_qty`
-   - `product_weight_g`
-   - `product_length_cm`
-   - `product_height_cm`
-   - `product_width_cm`
-   - `category`
-   - `wait_time`
-   - `price`
-   - `share_of_one_stars`
-   - `share_of_five_stars`
-   - `review_score`
-   - `n_orders`
-   - `quantity`
-   - `sales`
+Bu çalışma aşağıdaki ekip üyeleri tarafından ortaklaşa geliştirilmiştir:
 
-### Utils
+* **[Senin Adın]** - *Dashboard Tasarımı, Finansal Modelleme & Logit Analizi*
+* **[Arkadaş 1]** - *Veri Temizliği & Hazırlık*
+* **[Arkadaş 2]** - *İstatistiksel Testler*
+* **[Arkadaş 3]** - *Kod Optimizasyonu*
 
-Utility functions to help during the project.
+---
 
-```python
-from olist.utils import *
-```
+## ⚙️ Kurulum ve Çalıştırma
 
-- `haversine_distance(lat1, lng1, lat2, lng2)`: computes distance (in km) between two pairs of (lat, lng) [See Formula](https://en.wikipedia.org/wiki/Haversine_formula)
-- `text_scatterplot(df, x, y)`: for a Dataframe `df`, creates a scatterplot with `x` and `y`. The index of `df` is the text label.
-- `return_significative_coef(model)`: from a `model` as a statsmodels object, returns significant coefficients.
-- `plot_kde_plot(df, variable, dimension)`: plots a side by side kdeplot from DataFrame `df` for `variable`, split by `dimension`.
+Projeyi yerel makinenizde çalıştırmak için:
+
+1.  Repoyu klonlayın:
+    ```bash
+    git clone [https://github.com/KULLANICI_ADIN/REPO_ADIN.git](https://github.com/KULLANICI_ADIN/REPO_ADIN.git)
+    cd REPO_ADIN
+    ```
+
+2.  Gerekli kütüphaneleri yükleyin:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+3.  Uygulamayı başlatın:
+    ```bash
+    python app.py
+    ```
+    Tarayıcınızda `http://127.0.0.1:8050/` adresine gidin.
+
+---
