@@ -3,7 +3,13 @@
 > **Proje Hakkında**
 > Bu proje, **Workintech Veri Bilimi Bootcamp**'i kapsamında verilen bitirme projesi temel alınarak geliştirilmiştir. Orijinal yapı ve veri mühendisliği süreçleri **4 kişilik bir ekip çalışmasıyla** (Agile) kurgulanmış; finansal dashboard tasarımı, müşteri memnuniyeti analizi (Logit) ve interaktif simülasyon modülleri tarafımca eklenerek final haline getirilmiştir.
 
-<img width="595" height="581" alt="Ekran Resmi 2026-01-02 11 00 58" src="https://github.com/user-attachments/assets/59cf61a2-4581-4cce-80c1-e9fb8ff35aa9" />
+<img width="664" height="627" alt="Ekran Resmi 2026-01-02 11 22 07" src="https://github.com/user-attachments/assets/c72305de-f58b-4282-a0db-4246ac667649" />
+
+<img width="664" height="518" alt="Ekran Resmi 2026-01-02 11 22 37" src="https://github.com/user-attachments/assets/fb4ee82d-d75f-4744-b88e-43e315fa575a" />
+
+<img width="664" height="605" alt="Ekran Resmi 2026-01-02 11 22 55" src="https://github.com/user-attachments/assets/778822c9-6a3b-4f13-83cb-c5fcaf5cd793" />
+
+<img width="664" height="612" alt="Ekran Resmi 2026-01-02 11 23 20" src="https://github.com/user-attachments/assets/242e0f75-4c77-4c2f-bf7d-aec7c5c62024" />
 
 ## 🚀 Projenin Amacı
 Bu panel, operasyonel memnuniyet metriklerini **finansal etkiye** çeviren ve buradan **portföy optimizasyonu** aksiyonuna giden, yönetim (C-Level) seviyesinde bir karar destek mekanizması sunar.
