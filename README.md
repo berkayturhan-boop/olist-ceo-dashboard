@@ -3,8 +3,7 @@
 > **Proje Hakkında**
 > Bu proje, **Workintech Veri Bilimi Bootcamp**'i kapsamında verilen bitirme projesi temel alınarak geliştirilmiştir. Orijinal yapı ve veri mühendisliği süreçleri **4 kişilik bir ekip çalışmasıyla** (Agile) kurgulanmış; finansal dashboard tasarımı, müşteri memnuniyeti analizi (Logit) ve interaktif simülasyon modülleri tarafımca eklenerek final haline getirilmiştir.
 
-![Financial Dashboard Preview](https://github.com/tmy-datamesa/CEO_talebi_takim1/assets/buraya-resim-linki-gelecek)
-*(Yukarıya Finansal Özet ekran görüntüsünü ekleyin)*
+<img width="595" height="581" alt="Ekran Resmi 2026-01-02 11 00 58" src="https://github.com/user-attachments/assets/59cf61a2-4581-4cce-80c1-e9fb8ff35aa9" />
 
 ## 🚀 Projenin Amacı
 Bu panel, operasyonel memnuniyet metriklerini **finansal etkiye** çeviren ve buradan **portföy optimizasyonu** aksiyonuna giden, yönetim (C-Level) seviyesinde bir karar destek mekanizması sunar.
